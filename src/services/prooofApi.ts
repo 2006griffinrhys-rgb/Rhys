@@ -47,6 +47,10 @@ function asOptionalString(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
+function asBoolean(value: unknown, fallback = false): boolean {
+  return typeof value === "boolean" ? value : fallback;
+}
+
 function asReceiptStatus(value: unknown): ReceiptStatus {
   if (value === "processed" || value === "pending" || value === "failed") {
     return value;
@@ -71,11 +75,105 @@ function isEmailProviderId(value: string): value is EmailProviderId {
   return ALL_EMAIL_PROVIDERS.includes(value as EmailProviderId);
 }
 
+function resolveRawTotalCents(row: UnknownRow): number {
+  if (typeof row.total_cents === "number" && Number.isFinite(row.total_cents)) {
+    return Math.round(row.total_cents);
+  }
+  if (typeof row.total === "number" && Number.isFinite(row.total)) {
+    return Math.round(row.total * 100);
+  }
+  if (typeof row.amount_cents === "number" && Number.isFinite(row.amount_cents)) {
+    return Math.round(row.amount_cents);
+  }
+  if (typeof row.amount === "number" && Number.isFinite(row.amount)) {
+    return Math.round(row.amount * 100);
+  }
+  return 0;
+}
+
+function isMoneyInRow(row: UnknownRow, rawTotalCents: number): boolean {
+  const direction = asString(
+    row.direction ?? row.transaction_direction ?? row.transaction_type ?? row.kind ?? row.flow,
+  ).toLowerCase();
+  const description = asString(row.description ?? row.title ?? row.note).toLowerCase();
+  const isCreditFlag = asBoolean(row.is_credit ?? row.is_income ?? row.money_in ?? row.credit, false);
+  const isDebitFlag = asBoolean(row.is_debit ?? row.is_expense ?? row.money_out ?? row.debit, false);
+
+  if (isCreditFlag) return true;
+  if (isDebitFlag) return false;
+
+  if (
+    direction.includes("credit") ||
+    direction.includes("income") ||
+    direction.includes("incoming") ||
+    direction.includes("deposit")
+  ) {
+    return true;
+  }
+  if (
+    direction.includes("debit") ||
+    direction.includes("expense") ||
+    direction.includes("purchase") ||
+    direction.includes("outgoing")
+  ) {
+    return false;
+  }
+
+  // These keywords typically describe supplier-to-customer money-in transactions.
+  if (
+    description.includes("refund received") ||
+    description.includes("payment received") ||
+    description.includes("money in") ||
+    description.includes("credit received")
+  ) {
+    return true;
+  }
+
+  // In this app we treat positive totals as purchases by default.
+  return rawTotalCents <= 0;
+}
+
+function buildReceiptFingerprint(receipt: Receipt): string {
+  const date = new Date(receipt.purchaseDate);
+  const dateKey = Number.isFinite(date.getTime())
+    ? date.toISOString().slice(0, 19)
+    : receipt.purchaseDate;
+  return [
+    receipt.merchant.trim().toLowerCase(),
+    receipt.currency.toUpperCase(),
+    String(receipt.totalCents),
+    dateKey,
+    receipt.source,
+  ].join("|");
+}
+
+function dedupeReceipts(rows: Receipt[]): Receipt[] {
+  const seenIds = new Set<string>();
+  const seenFingerprints = new Set<string>();
+  const deduped: Receipt[] = [];
+
+  for (const row of rows) {
+    if (seenIds.has(row.id)) {
+      continue;
+    }
+    const fingerprint = buildReceiptFingerprint(row);
+    if (seenFingerprints.has(fingerprint)) {
+      continue;
+    }
+    seenIds.add(row.id);
+    seenFingerprints.add(fingerprint);
+    deduped.push(row);
+  }
+
+  return deduped;
+}
+
 function mapReceipt(row: UnknownRow): Receipt {
+  const rawTotalCents = resolveRawTotalCents(row);
   return {
     id: asString(row.id, Math.random().toString(36).slice(2)),
     merchant: asString(row.merchant, "Unknown merchant"),
-    totalCents: Math.round(asNumber(row.total_cents, asNumber(row.total, 0) * 100)),
+    totalCents: Math.max(0, rawTotalCents),
     currency: asString(row.currency, "GBP"),
     purchaseDate: asDateString(row.purchase_date ?? row.purchased_at),
     source: (["gmail", "outlook", "yahoo", "manual"].includes(asString(row.source))
@@ -178,7 +276,12 @@ export async function fetchSnapshotForUser(userId: string): Promise<AppSnapshot>
   }
 
   return {
-    receipts: (receiptsResult.data ?? []).map((row) => mapReceipt(row as UnknownRow)),
+    receipts: dedupeReceipts(
+      (receiptsResult.data ?? [])
+        .map((row) => row as UnknownRow)
+        .filter((row) => !isMoneyInRow(row, resolveRawTotalCents(row)))
+        .map((row) => mapReceipt(row)),
+    ),
     products: (productsResult.data ?? []).map((row) => mapProduct(row as UnknownRow)),
     recalls: (recallsResult.data ?? []).map((row) => mapRecall(row as UnknownRow)),
     claims: (claimsResult.data ?? []).map((row) => mapClaim(row as UnknownRow)),
