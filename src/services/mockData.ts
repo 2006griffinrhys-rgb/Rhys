@@ -142,6 +142,26 @@ export const MOCK_RECEIPTS: Receipt[] = [
     status: "processed",
     source: "manual",
   },
+  {
+    id: "r-016",
+    merchant: "Boohoo Clothing",
+    totalCents: 7295,
+    currency: "GBP",
+    purchaseDate: "2026-04-20T12:15:00.000Z",
+    status: "processed",
+    source: "gmail",
+    supplierWarrantySource: "invoice",
+    supplierWarrantyMonths: 12,
+  },
+  {
+    id: "r-017",
+    merchant: "Prime Home Cleaning Service",
+    totalCents: 5900,
+    currency: "GBP",
+    purchaseDate: "2026-04-21T09:40:00.000Z",
+    status: "processed",
+    source: "outlook",
+  },
 ];
 
 export const MOCK_PRODUCTS: Product[] = [
