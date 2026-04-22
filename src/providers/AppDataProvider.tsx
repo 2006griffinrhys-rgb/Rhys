@@ -1,20 +1,31 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type {
+  BillingInterval,
+  BillingTier,
   Claim,
   DashboardStats,
+  EmailProviderId,
+  InboxScanResult,
   PlanFeatures,
+  PlanPricing,
   Product,
   Recall,
   Receipt,
   SupportedCurrency,
-  BillingTier,
 } from "@/types/domain";
 import {
   computeStats,
   createClaimForRecall,
   fetchSnapshotForUser,
-  runUnlimitedInboxScan,
+  runMultiProviderInboxScan,
 } from "@/services/prooofApi";
+import {
+  createStripeCheckoutSession,
+  createStripePortalSession,
+  getPriceForInterval,
+  PLAN_PRICING,
+  requestSubscriptionDowngrade,
+} from "@/services/billing";
 import { useAuth } from "@/providers/AuthProvider";
 import { env } from "@/services/env";
 
@@ -32,19 +43,38 @@ type AppDataContextValue = AppDataState & {
   error: string | null;
   usingDemoData: boolean;
   userPlan: BillingTier;
+  billingInterval: BillingInterval;
+  keepAccessUntilPeriodEnd: boolean;
   planFlags: PlanFeatures;
+  planPricing: Record<BillingTier, PlanPricing>;
   claimsUsed: number;
   claimsRemaining: number | null;
   claimLimitReached: boolean;
   claimTier: BillingTier;
+  activePlanPriceCents: number;
   preferredCurrency: SupportedCurrency;
   scanningInbox: boolean;
+  inboxScanProviders: EmailProviderId[];
+  providerCoverageLabel: string;
+  inboxScanLastCount: number | null;
+  lastInboxScan: InboxScanResult | null;
   billMonitoringEnabled: boolean;
   refresh: () => Promise<void>;
-  runInboxScan: () => Promise<void>;
+  runInboxScan: (providers?: EmailProviderId[]) => Promise<void>;
   scanEntireInbox: () => Promise<void>;
   setPreferredCurrency: (currency: SupportedCurrency) => void;
   setUserPlan: (plan: BillingTier) => void;
+  setBillingInterval: (interval: BillingInterval) => void;
+  setKeepAccessUntilPeriodEnd: (value: boolean) => void;
+  setInboxScanProviders: (providers: EmailProviderId[]) => void;
+  startSubscriptionCheckout: (plan: Exclude<BillingTier, "free">) => Promise<{ url: string; isMock: boolean }>;
+  openStripeBillingPortal: () => Promise<{ url: string; isMock: boolean }>;
+  downgradeToFreePlan: () => Promise<{
+    willDowngradeAtPeriodEnd: boolean;
+    currentPeriodEnd?: string;
+    isMock: boolean;
+  }>;
+  scheduledDowngradeAt: string | null;
   createClaimForRecall: (recall: Recall) => Promise<void>;
 };
 
@@ -101,6 +131,14 @@ const PLAN_CONFIG: Record<
 };
 
 const SUPPORTED_CURRENCIES: SupportedCurrency[] = ["GBP", "USD", "EUR", "CAD", "AUD", "JPY"];
+const DEFAULT_INBOX_PROVIDERS: EmailProviderId[] = [
+  "gmail",
+  "yahoo",
+  "outlook",
+  "office365",
+  "exchange",
+  "work-imap",
+];
 
 const MOCK_FX_RATES_TO_GBP: Record<SupportedCurrency, number> = {
   GBP: 1,
@@ -149,7 +187,13 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [preferredCurrency, setPreferredCurrencyState] = useState<SupportedCurrency>("GBP");
   const [userPlan, setUserPlanState] = useState<BillingTier>("free");
+  const [billingInterval, setBillingIntervalState] = useState<BillingInterval>("monthly");
+  const [keepAccessUntilPeriodEnd, setKeepAccessUntilPeriodEndState] = useState(true);
+  const [scheduledDowngradeAt, setScheduledDowngradeAt] = useState<string | null>(null);
   const [scanningInbox, setScanningInbox] = useState(false);
+  const [inboxScanProviders, setInboxScanProvidersState] = useState<EmailProviderId[]>(DEFAULT_INBOX_PROVIDERS);
+  const [inboxScanLastCount, setInboxScanLastCount] = useState<number | null>(null);
+  const [lastInboxScan, setLastInboxScan] = useState<InboxScanResult | null>(null);
 
   const loadData = useCallback(async () => {
     setError(null);
@@ -164,6 +208,12 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     try {
       const nextPlan = getPlanFromUserMetadata(user);
       setUserPlanState(nextPlan);
+      if (user.user_metadata?.billing_interval === "monthly" || user.user_metadata?.billing_interval === "yearly") {
+        setBillingIntervalState(user.user_metadata.billing_interval);
+      }
+      if (typeof user.user_metadata?.keep_access_until_period_end === "boolean") {
+        setKeepAccessUntilPeriodEndState(user.user_metadata.keep_access_until_period_end);
+      }
       if (typeof user.user_metadata?.preferred_currency === "string") {
         setPreferredCurrencyState(normalizeCurrency(user.user_metadata.preferred_currency));
       }
@@ -258,13 +308,15 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     [state.claims, user?.id, userPlan],
   );
 
-  const runInboxScan = useCallback(async () => {
+  const runInboxScan = useCallback(async (providers?: EmailProviderId[]) => {
     if (!user?.id) return;
 
     try {
       setScanningInbox(true);
       setError(null);
-      await runUnlimitedInboxScan(user.id);
+      const result = await runMultiProviderInboxScan(user.id, providers ?? inboxScanProviders);
+      setInboxScanLastCount(result.scannedEmails);
+      setLastInboxScan(result);
       await loadData();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Inbox scan failed.";
@@ -272,7 +324,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setScanningInbox(false);
     }
-  }, [loadData, user?.id]);
+  }, [inboxScanProviders, loadData, user?.id]);
 
   const claimsUsed = useMemo(() => {
     const currentMonth = toBillingCycleMonth(new Date());
@@ -296,6 +348,84 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     setUserPlanState(plan);
   }, []);
 
+  const setBillingInterval = useCallback((interval: BillingInterval) => {
+    setBillingIntervalState(interval);
+  }, []);
+
+  const setKeepAccessUntilPeriodEnd = useCallback((value: boolean) => {
+    setKeepAccessUntilPeriodEndState(value);
+  }, []);
+
+  const setInboxScanProviders = useCallback((providers: EmailProviderId[]) => {
+    setInboxScanProvidersState(
+      providers.length > 0 ? providers : DEFAULT_INBOX_PROVIDERS,
+    );
+  }, []);
+
+  const startSubscriptionCheckout = useCallback(
+    async (plan: Exclude<BillingTier, "free">) => {
+      if (!user?.id) {
+        throw new Error("Sign in before managing subscriptions.");
+      }
+      const result = await createStripeCheckoutSession({
+        userId: user.id,
+        email: user.email,
+        plan,
+        interval: billingInterval,
+        successUrl: `${env.supportUrl}/billing/success`,
+        cancelUrl: `${env.supportUrl}/billing/cancelled`,
+      });
+      if (result.isMock) {
+        setUserPlanState(plan);
+      }
+      return result;
+    },
+    [billingInterval, user?.email, user?.id],
+  );
+
+  const openStripeBillingPortal = useCallback(async () => {
+    if (!user?.id) {
+      throw new Error("Sign in before opening billing portal.");
+    }
+    return createStripePortalSession({
+      userId: user.id,
+      returnUrl: `${env.supportUrl}/settings`,
+    });
+  }, [user?.id]);
+
+  const downgradeToFreePlan = useCallback(async () => {
+    if (!user?.id) {
+      throw new Error("Sign in before changing subscription.");
+    }
+    const result = await requestSubscriptionDowngrade({
+      userId: user.id,
+      keepAccessUntilPeriodEnd,
+    });
+    if (result.willDowngradeAtPeriodEnd) {
+      setScheduledDowngradeAt(result.currentPeriodEnd ?? null);
+    } else {
+      setScheduledDowngradeAt(null);
+      setUserPlanState("free");
+    }
+    if (result.isMock && !keepAccessUntilPeriodEnd) {
+      setUserPlanState("free");
+    }
+    return result;
+  }, [keepAccessUntilPeriodEnd, user?.id]);
+
+  const providerCoverageLabel = useMemo(() => {
+    if (inboxScanProviders.length === 0) return "No providers selected";
+    if (inboxScanProviders.length === DEFAULT_INBOX_PROVIDERS.length) {
+      return "All linked providers: Gmail, Yahoo, Outlook, Office 365, Exchange/IMAP work inboxes";
+    }
+    return `Selected providers: ${inboxScanProviders.join(", ")}`;
+  }, [inboxScanProviders]);
+
+  const activePlanPriceCents = useMemo(
+    () => getPriceForInterval(userPlan, billingInterval),
+    [billingInterval, userPlan],
+  );
+
   const value = useMemo<AppDataContextValue>(
     () => ({
       ...state,
@@ -304,19 +434,34 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       error,
       usingDemoData: !env.hasSupabaseConfig,
       userPlan,
+      billingInterval,
+      keepAccessUntilPeriodEnd,
       planFlags,
+      planPricing: PLAN_PRICING,
       claimsUsed,
       claimsRemaining,
       claimLimitReached,
       claimTier: userPlan,
+      activePlanPriceCents,
       preferredCurrency,
       scanningInbox,
+      inboxScanProviders,
+      providerCoverageLabel,
+      inboxScanLastCount,
+      lastInboxScan,
       billMonitoringEnabled: planFlags.billMonitoring,
       refresh,
       runInboxScan,
-      scanEntireInbox: runInboxScan,
+      scanEntireInbox: () => runInboxScan(DEFAULT_INBOX_PROVIDERS),
       setPreferredCurrency,
       setUserPlan,
+      setBillingInterval,
+      setKeepAccessUntilPeriodEnd,
+      setInboxScanProviders,
+      startSubscriptionCheckout,
+      openStripeBillingPortal,
+      downgradeToFreePlan,
+      scheduledDowngradeAt,
       createClaimForRecall: createClaimForRecallAction,
     }),
     [
@@ -325,16 +470,30 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       refreshing,
       error,
       userPlan,
+      billingInterval,
+      keepAccessUntilPeriodEnd,
       planFlags,
       claimsUsed,
       claimsRemaining,
       claimLimitReached,
+      activePlanPriceCents,
       preferredCurrency,
       scanningInbox,
+      inboxScanProviders,
+      providerCoverageLabel,
+      inboxScanLastCount,
+      lastInboxScan,
       refresh,
       runInboxScan,
       setPreferredCurrency,
       setUserPlan,
+      setBillingInterval,
+      setKeepAccessUntilPeriodEnd,
+      setInboxScanProviders,
+      startSubscriptionCheckout,
+      openStripeBillingPortal,
+      downgradeToFreePlan,
+      scheduledDowngradeAt,
       createClaimForRecallAction,
     ],
   );

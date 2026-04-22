@@ -19,9 +19,13 @@ export function DashboardScreen() {
     usingDemoData,
     preferredCurrency,
     userPlan,
+    billingInterval,
+    activePlanPriceCents,
     claimsRemaining,
-    runInboxScan,
+    scanEntireInbox,
     scanningInbox,
+    lastInboxScan,
+    providerCoverageLabel,
   } = useAppData();
   const latestReceipt = receipts[0] ?? null;
   const latestRecall = recalls[0] ?? null;
@@ -47,6 +51,12 @@ export function DashboardScreen() {
         <Text style={styles.planName}>
           {userPlan === "free" ? "Free" : userPlan === "premium" ? "Premium £4.99" : "Unlimited £9.99"}
         </Text>
+        {userPlan !== "free" ? (
+          <Text style={styles.planMeta}>
+            {billingInterval === "yearly" ? "Yearly billing (20% off): " : "Monthly billing: "}
+            {formatCents(activePlanPriceCents, "GBP")}
+          </Text>
+        ) : null}
         <Text style={styles.planMeta}>
           {claimsRemaining === null
             ? "Unlimited claims this month"
@@ -57,7 +67,13 @@ export function DashboardScreen() {
       <Card>
         <Text style={styles.planLabel}>Inbox scanning</Text>
         <Text style={styles.planMeta}>Scans every available email in linked inboxes (no cap).</Text>
-        <Text onPress={runInboxScan} style={[styles.scanCta, scanningInbox && styles.scanCtaDisabled]}>
+        <Text style={styles.scanMeta}>Coverage: {providerCoverageLabel}</Text>
+        {lastInboxScan ? (
+          <Text style={styles.scanMeta}>
+            Last full scan processed {lastInboxScan.scannedEmails.toLocaleString("en-GB")} emails
+          </Text>
+        ) : null}
+        <Text onPress={() => void scanEntireInbox()} style={[styles.scanCta, scanningInbox && styles.scanCtaDisabled]}>
           {scanningInbox ? "Scanning inbox..." : "Run full inbox scan now"}
         </Text>
       </Card>
@@ -164,6 +180,11 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 14,
     fontWeight: "700",
+  },
+  scanMeta: {
+    marginTop: spacing.xs,
+    color: colors.textMuted,
+    fontSize: 12,
   },
   scanCtaDisabled: {
     opacity: 0.55,

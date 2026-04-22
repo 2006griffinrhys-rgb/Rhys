@@ -2,9 +2,20 @@ export type ReceiptStatus = "pending" | "processed" | "failed";
 export type ClaimStatus = "draft" | "submitted" | "processing" | "paid" | "rejected";
 export type RecallSeverity = "low" | "medium" | "high";
 export type BillingTier = "free" | "premium" | "unlimited";
+export type BillingInterval = "monthly" | "yearly";
 export type SupportedCurrency = "GBP" | "USD" | "EUR" | "CAD" | "AUD" | "JPY";
 export type UserPlan = BillingTier;
 export type PlanType = BillingTier;
+export type EmailProviderId =
+  | "gmail"
+  | "yahoo"
+  | "outlook"
+  | "office365"
+  | "exchange"
+  | "work-imap";
+export type EmailProvider = EmailProviderId;
+export type InboxProvider = EmailProviderId;
+export type EmailProviderTarget = EmailProviderId;
 
 export type Receipt = {
   id: string;
@@ -12,7 +23,7 @@ export type Receipt = {
   totalCents: number;
   currency: string;
   purchaseDate: string;
-  source: "gmail" | "outlook" | "yahoo" | "manual";
+  source: EmailProviderId | "manual";
   status: ReceiptStatus;
 };
 
@@ -79,12 +90,39 @@ export type SubscriptionPlan = {
   tier: BillingTier;
   name: string;
   monthlyPriceLabel: string;
+  yearlyPriceLabel?: string;
+  yearlyDiscountPercent?: number;
   claimLimitPerMonth: number | null;
   features: PlanFeatures;
+};
+
+export type PlanPricing = {
+  monthlyPriceCents: number;
+  yearlyPriceCents: number;
+  yearlyDiscountPercent: number;
 };
 
 export type InboxScanResult = {
   scannedEmails: number;
   importedReceipts: Receipt[];
   scannedAt: string;
+  providers: InboxScanProviderResult[];
+  warnings: string[];
 };
+
+export type InboxProviderSpec = {
+  id: EmailProviderId;
+  label: string;
+  description: string;
+  hosts: string[];
+  supportsWorkDomains: boolean;
+};
+
+export type InboxScanProviderResult = {
+  provider: EmailProviderId;
+  scannedEmails: number;
+  matchedReceipts: number;
+  status: "queued" | "scanned" | "failed";
+};
+
+export type InboxProviderCoverage = Record<EmailProviderId, boolean>;

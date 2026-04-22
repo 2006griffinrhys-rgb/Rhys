@@ -6,10 +6,23 @@ import { colors, spacing } from "@/theme/colors";
 import { useAuth } from "@/providers/AuthProvider";
 import { useAppData } from "@/providers/AppDataProvider";
 import { getEnvSummary } from "@/services/env";
-import type { BillingTier, SupportedCurrency } from "@/types/domain";
+import type { BillingTier, EmailProviderId, SupportedCurrency } from "@/types/domain";
+import { formatCents, formatDate } from "@/utils/format";
 
 const SUPPORT_URL = "https://www.prooof.app";
 const CURRENCIES: SupportedCurrency[] = ["GBP", "USD", "EUR", "CAD", "AUD", "JPY"];
+const BILLING_INTERVALS = [
+  { id: "monthly", label: "Monthly" },
+  { id: "yearly", label: "Yearly (20% off)" },
+] as const;
+const PROVIDERS: { id: EmailProviderId; label: string }[] = [
+  { id: "gmail", label: "Gmail" },
+  { id: "yahoo", label: "Yahoo Mail" },
+  { id: "outlook", label: "Outlook / Hotmail / Live" },
+  { id: "office365", label: "Microsoft 365 / Exchange Online" },
+  { id: "exchange", label: "Microsoft Exchange (on-prem/work)" },
+  { id: "work-imap", label: "Work IMAP / custom domains" },
+];
 
 export function SettingsScreen() {
   const { user, signOut, isDemoAuth } = useAuth();
@@ -17,11 +30,24 @@ export function SettingsScreen() {
     refresh,
     refreshing,
     userPlan,
-    setUserPlan,
+    billingInterval,
+    setBillingInterval,
+    keepAccessUntilPeriodEnd,
+    setKeepAccessUntilPeriodEnd,
+    planPricing,
+    activePlanPriceCents,
+    startSubscriptionCheckout,
+    openStripeBillingPortal,
+    downgradeToFreePlan,
+    scheduledDowngradeAt,
     preferredCurrency,
     setPreferredCurrency,
     runInboxScan,
+    inboxScanProviders,
+    setInboxScanProviders,
+    providerCoverageLabel,
     scanningInbox,
+    inboxScanLastCount,
   } = useAppData();
   const envSummary = getEnvSummary();
 
@@ -42,24 +68,101 @@ export function SettingsScreen() {
   const handleScanInbox = async () => {
     try {
       await runInboxScan();
-      Alert.alert("Inbox scan started", "Scanning all emails in inbox (no cap).");
+      Alert.alert(
+        "Inbox scan started",
+        "Scanning all emails across selected providers (no cap).",
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not start inbox scan.";
       Alert.alert("Scan failed", message);
     }
   };
 
+  const toggleProvider = (provider: EmailProviderId) => {
+    const exists = inboxScanProviders.includes(provider);
+    if (exists) {
+      const next = inboxScanProviders.filter((item) => item !== provider);
+      if (next.length > 0) {
+        setInboxScanProviders(next);
+      }
+      return;
+    }
+    setInboxScanProviders([...inboxScanProviders, provider]);
+  };
+
   const renderPlanButton = (plan: BillingTier, label: string) => {
     const selected = userPlan === plan;
+    const pricing = planPricing[plan];
+    const priceLabel =
+      plan === "free"
+        ? "£0.00"
+        : billingInterval === "yearly"
+          ? `${formatCents(pricing.yearlyPriceCents, "GBP")} / year`
+          : `${formatCents(pricing.monthlyPriceCents, "GBP")} / month`;
     return (
       <Pressable
         key={plan}
-        onPress={() => setUserPlan(plan)}
+        onPress={() => {
+          if (plan === "free") {
+            void handleDowngradeToFree();
+            return;
+          }
+          void handleUpgrade(plan);
+        }}
         style={[styles.planButton, selected && styles.planButtonActive]}
       >
         <Text style={[styles.planButtonText, selected && styles.planButtonTextActive]}>{label}</Text>
+        <Text style={[styles.planPriceText, selected && styles.planButtonTextActive]}>{priceLabel}</Text>
       </Pressable>
     );
+  };
+
+  const handleUpgrade = async (plan: Exclude<BillingTier, "free">) => {
+    try {
+      const result = await startSubscriptionCheckout(plan);
+      if (result.isMock) {
+        Alert.alert("Demo billing mode", "Stripe is not configured, so your plan was updated locally.");
+      }
+      const supported = await Linking.canOpenURL(result.url);
+      if (!supported) {
+        Alert.alert("Open billing failed", "Could not open Stripe checkout.");
+        return;
+      }
+      await Linking.openURL(result.url);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not start checkout.";
+      Alert.alert("Checkout error", message);
+    }
+  };
+
+  const handleOpenBillingPortal = async () => {
+    try {
+      const result = await openStripeBillingPortal();
+      const supported = await Linking.canOpenURL(result.url);
+      if (!supported) {
+        Alert.alert("Open billing failed", "Could not open Stripe billing portal.");
+        return;
+      }
+      await Linking.openURL(result.url);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not open billing portal.";
+      Alert.alert("Billing portal error", message);
+    }
+  };
+
+  const handleDowngradeToFree = async () => {
+    try {
+      const result = await downgradeToFreePlan();
+      if (result.willDowngradeAtPeriodEnd) {
+        const dateLabel = result.currentPeriodEnd ? formatDate(result.currentPeriodEnd) : "period end";
+        Alert.alert("Downgrade scheduled", `Access will remain active until ${dateLabel}.`);
+      } else {
+        Alert.alert("Plan updated", "Your plan is now Free.");
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not downgrade subscription.";
+      Alert.alert("Downgrade error", message);
+    }
   };
 
   const renderCurrencyButton = (currency: SupportedCurrency) => {
@@ -86,6 +189,26 @@ export function SettingsScreen() {
 
       <Card>
         <Text style={styles.groupTitle}>Data Sync</Text>
+        <Text style={styles.envLabel}>Provider coverage</Text>
+        <Text style={styles.envValue}>{providerCoverageLabel}</Text>
+        <View style={styles.providerGrid}>
+          {PROVIDERS.map((provider) => {
+            const selected = inboxScanProviders.includes(provider.id);
+            return (
+              <Pressable
+                key={provider.id}
+                onPress={() => toggleProvider(provider.id)}
+                style={[styles.providerChip, selected && styles.providerChipActive]}
+              >
+                <Text
+                  style={[styles.providerChipText, selected && styles.providerChipTextActive]}
+                >
+                  {provider.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
         <Pressable style={styles.primaryButton} onPress={refresh} disabled={refreshing}>
           <Text style={styles.primaryButtonText}>
             {refreshing ? "Refreshing..." : "Refresh data"}
@@ -96,15 +219,54 @@ export function SettingsScreen() {
             {scanningInbox ? "Scanning inbox..." : "Scan entire inbox (no cap)"}
           </Text>
         </Pressable>
+        {inboxScanLastCount !== null ? (
+          <Text style={styles.scanMeta}>
+            Last scan: {inboxScanLastCount.toLocaleString("en-GB")} emails processed
+          </Text>
+        ) : null}
       </Card>
 
       <Card>
         <Text style={styles.groupTitle}>Subscription</Text>
+        <Text style={styles.envLabel}>Billing interval</Text>
+        <View style={styles.currencyRow}>
+          {BILLING_INTERVALS.map((interval) => {
+            const selected = billingInterval === interval.id;
+            return (
+              <Pressable
+                key={interval.id}
+                onPress={() => setBillingInterval(interval.id)}
+                style={[styles.currencyButton, selected && styles.currencyButtonActive]}
+              >
+                <Text style={[styles.currencyButtonText, selected && styles.currencyButtonTextActive]}>
+                  {interval.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
         <View style={styles.planGroup}>
           {renderPlanButton("free", "Free · 5 claims/mo · no bill monitoring")}
           {renderPlanButton("premium", "Premium £4.99 · 20 claims/mo + bill alerts + chasing")}
           {renderPlanButton("unlimited", "Unlimited £9.99 · unlimited claims + priority")}
         </View>
+        <Text style={styles.scanMeta}>
+          Active plan price: {formatCents(activePlanPriceCents, "GBP")} {billingInterval === "yearly" ? "per year" : "per month"}
+        </Text>
+        <Text style={styles.envLabel}>Downgrade behavior</Text>
+        <Pressable
+          style={[styles.toggleRow, keepAccessUntilPeriodEnd && styles.toggleRowActive]}
+          onPress={() => setKeepAccessUntilPeriodEnd(!keepAccessUntilPeriodEnd)}
+        >
+          <Text style={styles.toggleTitle}>Keep access until period end (recommended)</Text>
+          <Text style={styles.toggleState}>{keepAccessUntilPeriodEnd ? "On" : "Off"}</Text>
+        </Pressable>
+        {scheduledDowngradeAt ? (
+          <Text style={styles.scanMeta}>Scheduled downgrade date: {formatDate(scheduledDowngradeAt)}</Text>
+        ) : null}
+        <Pressable style={styles.ghostButton} onPress={handleOpenBillingPortal}>
+          <Text style={styles.ghostButtonText}>Open Stripe billing portal</Text>
+        </Pressable>
       </Card>
 
       <Card>
@@ -133,6 +295,10 @@ export function SettingsScreen() {
           <View style={styles.envRow}>
             <Text style={styles.envLabel}>Auth mode</Text>
             <Text style={styles.envValue}>{isDemoAuth ? "Demo auth" : "Supabase auth"}</Text>
+          </View>
+          <View style={styles.envRow}>
+            <Text style={styles.envLabel}>Stripe billing</Text>
+            <Text style={styles.envValue}>{envSummary.stripeBillingEnabled ? "Enabled" : "Disabled"}</Text>
           </View>
         </View>
       </Card>
@@ -197,6 +363,34 @@ const styles = StyleSheet.create({
   planGroup: {
     gap: spacing.sm,
   },
+  providerGrid: {
+    marginTop: spacing.xs,
+    marginBottom: spacing.sm,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.xs,
+  },
+  providerChip: {
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.surfaceSoft,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  providerChipActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.infoSoft,
+  },
+  providerChipText: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.2,
+  },
+  providerChipTextActive: {
+    color: colors.primaryText,
+  },
   planButton: {
     borderWidth: 1,
     borderColor: colors.borderSoft,
@@ -217,6 +411,12 @@ const styles = StyleSheet.create({
   },
   planButtonTextActive: {
     color: colors.primaryText,
+  },
+  planPriceText: {
+    color: colors.textMuted,
+    marginTop: spacing.xs,
+    fontSize: 12,
+    fontWeight: "700",
   },
   currencyRow: {
     marginTop: spacing.xs,
@@ -248,6 +448,43 @@ const styles = StyleSheet.create({
   ghostButtonText: {
     color: colors.textPrimary,
     fontWeight: "600",
+  },
+  scanMeta: {
+    color: colors.textMuted,
+    fontSize: 12,
+    marginTop: spacing.xs,
+    lineHeight: 18,
+  },
+  toggleRow: {
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.surfaceSoft,
+    borderRadius: 12,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  toggleRowActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.infoSoft,
+  },
+  toggleTitle: {
+    color: colors.textPrimary,
+    fontWeight: "600",
+    fontSize: 13,
+    flex: 1,
+    paddingRight: spacing.sm,
+  },
+  toggleState: {
+    color: colors.primary,
+    fontWeight: "800",
+    fontSize: 12,
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
   },
   signOutButton: {
     backgroundColor: colors.dangerSoft,

@@ -161,3 +161,28 @@ Profiles are defined in `eas.json`:
 - This app mirrors the core Prooof entities from the Loveable project (`products`, `bills`, claims/recall flows).
 - If your Supabase schema differs, update mapping logic in `src/services/prooofApi.ts`.
 - The app includes demo fallback data to remain usable when backend env vars are missing.
+- Inbox scan flow is provider-aware and targets Gmail, Yahoo, Outlook/Hotmail/Live/MSN, Office 365, and custom work domains via IMAP/Exchange integration metadata.
+
+## Stripe billing integration
+
+Stripe billing is wired through Supabase Edge Functions and app-side billing helpers in `src/services/billing.ts`.
+
+Set these env vars in `.env`:
+
+- `EXPO_PUBLIC_STRIPE_BILLING_ENABLED=true`
+- `EXPO_PUBLIC_SUPPORT_URL=https://www.prooof.app`
+- `EXPO_PUBLIC_STRIPE_PORTAL_URL=` (optional fallback)
+
+Expected Supabase Edge Functions:
+
+- `billing-create-checkout-session`
+- `billing-create-portal-session`
+- `billing-cancel-subscription`
+
+Implemented billing behavior:
+
+- Monthly and yearly intervals (yearly includes 20% discount for paid plans).
+- “Keep access until period end (recommended)” toggle for downgrade/cancel flows (`cancel_at_period_end` behavior).
+- Free plan: 5 claims/month, no bill monitoring.
+- Premium: 20 claims/month + bill alerts + chasing.
+- Unlimited: unlimited claims + priority support.

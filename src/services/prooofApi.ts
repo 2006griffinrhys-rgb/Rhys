@@ -12,16 +12,24 @@ import type {
   Claim,
   ClaimStatus,
   DashboardStats,
+  EmailProviderId,
+  InboxScanProviderResult,
+  InboxScanResult,
   Product,
   Recall,
   Receipt,
   ReceiptStatus,
-  SubscriptionPlan,
-  SupportedCurrency,
-  UserPlan,
 } from "@/types/domain";
 
 type UnknownRow = Record<string, unknown>;
+const ALL_EMAIL_PROVIDERS: EmailProviderId[] = [
+  "gmail",
+  "yahoo",
+  "outlook",
+  "office365",
+  "exchange",
+  "work-imap",
+];
 
 function asString(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
@@ -57,6 +65,10 @@ function asClaimStatus(value: unknown): ClaimStatus {
     return value;
   }
   return "submitted";
+}
+
+function isEmailProviderId(value: string): value is EmailProviderId {
+  return ALL_EMAIL_PROVIDERS.includes(value as EmailProviderId);
 }
 
 function mapReceipt(row: UnknownRow): Receipt {
@@ -277,72 +289,76 @@ export async function runUnlimitedInboxScan(userId: string): Promise<{ scanned: 
   };
 }
 
-const PLAN_CONFIGS: Record<UserPlan, SubscriptionPlan> = {
-  free: {
-    tier: "free",
-    name: "Free",
-    monthlyPriceLabel: "£0.00",
-    claimLimitPerMonth: 5,
-    features: {
-      billMonitoring: false,
-      billAlerts: false,
-      chasing: false,
-      prioritySupport: false,
-    },
-  },
-  premium: {
-    tier: "premium",
-    name: "Premium",
-    monthlyPriceLabel: "£4.99",
-    claimLimitPerMonth: 20,
-    features: {
-      billMonitoring: true,
-      billAlerts: true,
-      chasing: true,
-      prioritySupport: false,
-    },
-  },
-  unlimited: {
-    tier: "unlimited",
-    name: "Unlimited",
-    monthlyPriceLabel: "£9.99",
-    claimLimitPerMonth: null,
-    features: {
-      billMonitoring: true,
-      billAlerts: true,
-      chasing: true,
-      prioritySupport: true,
-    },
-  },
-};
+export async function runMultiProviderInboxScan(
+  userId: string,
+  providers: EmailProviderId[],
+): Promise<InboxScanResult> {
+  const normalizedProviders: EmailProviderId[] = providers.length ? providers : ALL_EMAIL_PROVIDERS;
+  if (!env.hasSupabaseConfig || !userId) {
+    return {
+      scannedEmails: MOCK_INBOX_SCAN_COUNT,
+      importedReceipts: [],
+      scannedAt: new Date().toISOString(),
+      providers: normalizedProviders.map((provider): InboxScanProviderResult => ({
+        provider,
+        scannedEmails: Math.floor(MOCK_INBOX_SCAN_COUNT / normalizedProviders.length),
+        matchedReceipts: Math.floor(42 / normalizedProviders.length),
+        status: "scanned",
+      })),
+      warnings: [],
+    };
+  }
 
-export function getSubscriptionPlan(plan: UserPlan): SubscriptionPlan {
-  return PLAN_CONFIGS[plan];
-}
+  const { data, error } = await supabase.functions.invoke("scan-inbox", {
+    body: {
+      userId,
+      noCap: true,
+      providers: normalizedProviders,
+      includeWorkDomains: true,
+    },
+  });
 
-export function convertCents(
-  amountInCents: number,
-  fromCurrency: string,
-  toCurrency: SupportedCurrency,
-): number {
-  if (fromCurrency === toCurrency) return amountInCents;
+  if (error) {
+    throw new Error(error.message);
+  }
 
-  const ratesToGbp: Record<string, number> = {
-    GBP: 1,
-    USD: 0.79,
-    EUR: 0.86,
-    CAD: 0.58,
-    AUD: 0.52,
-    JPY: 0.0052,
+  const payload = (data ?? {}) as UnknownRow;
+  const rawProviders = Array.isArray(payload.providers) ? payload.providers : [];
+  const providerResults: InboxScanProviderResult[] = rawProviders
+    .map((item) => {
+      if (typeof item !== "object" || item === null) return null;
+      const row = item as UnknownRow;
+      const provider = asString(row.provider);
+      if (!isEmailProviderId(provider)) return null;
+      const status = asString(row.status, "queued");
+      const normalizedStatus: InboxScanProviderResult["status"] =
+        status === "scanned" || status === "failed" ? status : "queued";
+      return {
+        provider,
+        scannedEmails: asNumber(row.scanned_emails, 0),
+        matchedReceipts: asNumber(row.matched_receipts, 0),
+        status: normalizedStatus,
+      };
+    })
+    .filter((item): item is InboxScanProviderResult => item !== null);
+
+  const warnings = Array.isArray(payload.warnings)
+    ? payload.warnings.filter((item): item is string => typeof item === "string")
+    : [];
+
+  return {
+    scannedEmails: asNumber(payload.scanned, 0),
+    importedReceipts: [],
+    scannedAt: asDateString(payload.scanned_at),
+    providers:
+      providerResults.length > 0
+        ? providerResults
+        : normalizedProviders.map((provider): InboxScanProviderResult => ({
+            provider,
+            scannedEmails: 0,
+            matchedReceipts: 0,
+            status: "queued",
+          })),
+    warnings,
   };
-
-  const fromRate = ratesToGbp[fromCurrency] ?? 1;
-  const toRate = ratesToGbp[toCurrency] ?? 1;
-  const amountInGbp = (amountInCents / 100) * fromRate;
-  const converted = amountInGbp / toRate;
-  return Math.round(converted * 100);
-}
-
-export function currentBillingCycleKey(date: Date): string {
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
