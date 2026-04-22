@@ -43,7 +43,7 @@ export function DashboardScreen() {
     billingInterval,
     activePlanPriceCents,
   } = useAppData();
-  const [selectedCategory, setSelectedCategory] = useState<CategoryKey>("totalValue");
+  const [selectedCategory, setSelectedCategory] = useState<CategoryKey | null>(null);
   const [dismissTaxRelief, setDismissTaxRelief] = useState(false);
 
   const activeRecalls = recalls.filter((recall) => recall.isActive);
@@ -111,6 +111,9 @@ export function DashboardScreen() {
   );
 
   const quickView = useMemo(() => {
+    if (!selectedCategory) {
+      return null;
+    }
     const fallback = [{ id: "none", label: "No matching items right now.", detail: "Try refreshing after your next scan." }];
     const viewMap: Record<CategoryKey, { title: string; description: string; items: QuickViewItem[] }> = {
       totalValue: {
@@ -175,8 +178,11 @@ export function DashboardScreen() {
 
   return (
     <Screen onRefresh={refresh} refreshing={refreshing} backgroundColor={colors.authBackground}>
-      <View style={styles.container}>
+      <View style={styles.page}>
+        <View style={styles.container}>
         <View style={styles.heroCard}>
+          <View style={styles.heroGradientStart} />
+          <View style={styles.heroGradientBlend} />
           <Text style={styles.heroLabel}>WE FOUND</Text>
           <View style={styles.heroMainRow}>
             <Text style={styles.heroAmount}>{formatCents(potentialValueCents, preferredCurrency)}</Text>
@@ -206,7 +212,7 @@ export function DashboardScreen() {
           </View>
         </View>
 
-        <View style={styles.moneyCard}>
+        <Pressable style={styles.moneyCard} onPress={() => setSelectedCategory("totalValue")}>
           <View style={styles.moneyIcon}>
             <Text style={styles.moneyIconText}>£</Text>
           </View>
@@ -214,10 +220,11 @@ export function DashboardScreen() {
             <Text style={styles.moneyTitle}>Potential money owed</Text>
             <Text style={styles.moneyValue}>Up to {formatCents(potentialValueCents, preferredCurrency)}</Text>
             <Text style={styles.moneyMeta}>
-              {activeRecalls.length} item(s) may qualify for a refund or compensation under consumer law.
+              {activeRecalls.length} item(s) may qualify for a refund or compensation under consumer law. Click to view
+              them.
             </Text>
           </View>
-        </View>
+        </Pressable>
 
         <View style={styles.categoryGrid}>
           {categorySummary.map((category) => {
@@ -225,7 +232,9 @@ export function DashboardScreen() {
             return (
               <Pressable
                 key={category.key}
-                onPress={() => setSelectedCategory(category.key)}
+                onPress={() =>
+                  setSelectedCategory((current) => (current === category.key ? null : category.key))
+                }
                 style={[styles.categoryCard, selected && styles.categoryCardSelected]}
               >
                 <View
@@ -257,18 +266,34 @@ export function DashboardScreen() {
           })}
         </View>
 
-        <View style={styles.quickViewCard}>
-          <Text style={styles.quickViewTitle}>{quickView.title}</Text>
-          <Text style={styles.quickViewDescription}>{quickView.description}</Text>
-          <View style={styles.quickItems}>
-            {quickView.items.map((item) => (
-              <View key={item.id} style={styles.quickItem}>
-                <Text style={styles.quickItemLabel}>{item.label}</Text>
-                <Text style={styles.quickItemDetail}>{item.detail}</Text>
+        {quickView ? (
+          <View style={styles.quickViewCard}>
+            <View style={styles.quickViewTopRow}>
+              <View style={styles.quickViewHeaderCopy}>
+                <Text style={styles.quickViewTitle}>{quickView.title}</Text>
+                <Text style={styles.quickViewDescription}>{quickView.description}</Text>
               </View>
-            ))}
+              <Pressable onPress={() => setSelectedCategory(null)} style={styles.quickViewClose}>
+                <Text style={styles.quickViewCloseText}>×</Text>
+              </Pressable>
+            </View>
+            <View style={styles.quickItems}>
+              {quickView.items.map((item) => (
+                <View key={item.id} style={styles.quickItem}>
+                  <Text style={styles.quickItemLabel}>{item.label}</Text>
+                  <Text style={styles.quickItemDetail}>{item.detail}</Text>
+                </View>
+              ))}
+            </View>
           </View>
-        </View>
+        ) : (
+          <View style={styles.quickViewHintCard}>
+            <Text style={styles.quickViewHintTitle}>Quick view</Text>
+            <Text style={styles.quickViewHintText}>
+              Click any category bubble above to open a focused quick view with matching items.
+            </Text>
+          </View>
+        )}
 
         {!dismissTaxRelief ? (
           <View style={styles.taxReliefCard}>
@@ -286,28 +311,55 @@ export function DashboardScreen() {
             </Pressable>
           </View>
         ) : null}
+        </View>
       </View>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  page: {
+    width: "100%",
+    alignItems: "center",
+  },
   container: {
+    width: "100%",
+    maxWidth: 1120,
     gap: spacing.md,
+    paddingBottom: spacing.lg,
   },
   heroCard: {
+    overflow: "hidden",
     backgroundColor: "#FF6400",
     borderRadius: radii.xl,
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.xl,
     paddingHorizontal: spacing.xl,
   },
+  heroGradientStart: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: "46%",
+    backgroundColor: "#FF1E49",
+  },
+  heroGradientBlend: {
+    position: "absolute",
+    left: "42%",
+    top: 0,
+    bottom: 0,
+    width: "18%",
+    backgroundColor: "rgba(255,84,0,0.45)",
+  },
   heroLabel: {
+    zIndex: 1,
     color: "#FFE7E3",
     fontSize: 13,
     fontWeight: "700",
     letterSpacing: 0.8,
   },
   heroMainRow: {
+    zIndex: 1,
     marginTop: spacing.sm,
     flexDirection: "row",
     alignItems: "flex-end",
@@ -328,9 +380,10 @@ const styles = StyleSheet.create({
     letterSpacing: -1,
   },
   heroMeta: {
+    zIndex: 1,
     marginTop: spacing.sm,
     color: "#FFF0E8",
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "500",
   },
   planStrip: {
@@ -435,6 +488,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.authSurface,
     padding: spacing.md,
     gap: spacing.xs,
+    minHeight: 140,
   },
   categoryCardSelected: {
     borderColor: colors.webLandingBrandRed,
@@ -503,6 +557,15 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.sm,
   },
+  quickViewTopRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+  },
+  quickViewHeaderCopy: {
+    flex: 1,
+    gap: spacing.xs,
+  },
   quickViewTitle: {
     color: colors.webLandingText,
     fontSize: 20,
@@ -512,6 +575,23 @@ const styles = StyleSheet.create({
     color: colors.webLandingSubtext,
     fontSize: 13,
     lineHeight: 19,
+  },
+  quickViewClose: {
+    width: 28,
+    height: 28,
+    borderRadius: radii.pill,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.authSurfaceSoft,
+    borderWidth: 1,
+    borderColor: colors.authBorder,
+  },
+  quickViewCloseText: {
+    color: colors.webLandingSubtext,
+    fontSize: 16,
+    fontWeight: "700",
+    lineHeight: 16,
+    marginTop: -1,
   },
   quickItems: {
     gap: spacing.xs,
@@ -533,6 +613,25 @@ const styles = StyleSheet.create({
     color: colors.webLandingSubtext,
     fontSize: 12,
     marginTop: 2,
+  },
+  quickViewHintCard: {
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.authBorderStrong,
+    backgroundColor: colors.authSurface,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    gap: spacing.xs,
+  },
+  quickViewHintTitle: {
+    color: colors.webLandingText,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  quickViewHintText: {
+    color: colors.webLandingSubtext,
+    fontSize: 13,
+    lineHeight: 18,
   },
   taxReliefCard: {
     borderRadius: radii.lg,
