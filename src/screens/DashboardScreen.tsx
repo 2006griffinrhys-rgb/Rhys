@@ -27,6 +27,7 @@ type ClaimOpportunity = {
   explanation: string;
   estimatedClaimCents: number;
   subtypeLabel: string;
+  subtypeIcon: string;
   ageMonths: number;
   withinSupplierWarranty: boolean;
 };
@@ -55,7 +56,7 @@ type OpportunitySubtype =
 const CATEGORY_TABS: CategoryTab[] = [
   { key: "goods", label: "Goods", tone: "goods" },
   { key: "services", label: "Services", tone: "services" },
-  { key: "household-bills", label: "Household bills", tone: "bills" },
+  { key: "household-bills", label: "Bills", tone: "bills" },
 ];
 
 const HOUSEHOLD_TIPS = [
@@ -242,6 +243,22 @@ function formatSubtypeLabel(subtype: OpportunitySubtype): string {
   return subtype.replace("-", " ").replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+function getSubtypeIcon(subtype: OpportunitySubtype): string {
+  if (subtype === "clothing") return "👕";
+  if (subtype === "water") return "💧";
+  if (subtype === "wifi") return "📶";
+  if (subtype === "hotel") return "🏨";
+  if (subtype === "energy") return "⚡";
+  if (subtype === "mobile") return "📱";
+  if (subtype === "groceries") return "🛒";
+  if (subtype === "electronics") return "💻";
+  if (subtype === "travel") return "✈️";
+  if (subtype === "membership") return "🎟️";
+  if (subtype === "general-services") return "🛠️";
+  if (subtype === "general-bills") return "🧾";
+  return "🛍️";
+}
+
 function getSupplierWarrantyWindowMonths(subtype: OpportunitySubtype, tone: ClaimCategoryTone): number | null {
   if (tone === "services" || tone === "bills") {
     return null;
@@ -389,6 +406,7 @@ export function DashboardScreen() {
         explanation: recommendation.explanation,
         estimatedClaimCents: Math.max(300, Math.round(receipt.totalCents * 0.4)),
         subtypeLabel: formatSubtypeLabel(subtype),
+        subtypeIcon: getSubtypeIcon(subtype),
         ageMonths: recommendation.ageMonths,
         withinSupplierWarranty: recommendation.withinSupplierWarranty,
       });
@@ -613,7 +631,9 @@ export function DashboardScreen() {
             })}
           </View>
 
-          <Text style={styles.sectionHeading}>Your owned {selectedCategory.replace("-", " ")}</Text>
+          <Text style={styles.sectionHeading}>
+            Your owned {CATEGORY_TABS.find((tab) => tab.key === selectedCategory)?.label ?? "items"}
+          </Text>
           {selectedRows.length > 0 ? (
             <View style={styles.opportunityGrid}>
               {selectedRows.map((item) => {
@@ -650,7 +670,7 @@ export function DashboardScreen() {
                       </View>
                       <View style={[styles.metaBubble, { backgroundColor: tone.bubbleBackground }]}>
                         <Text style={[styles.metaBubbleText, { color: tone.bubbleText }]}>
-                          {item.subtypeLabel}
+                          {item.subtypeIcon} {item.subtypeLabel}
                         </Text>
                       </View>
                       {item.tone === "goods" ? (
