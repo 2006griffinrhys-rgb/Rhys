@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { BillClaimDialog } from "@/components/BillClaimDialog";
 import { ProductClaimDialog } from "@/components/ProductClaimDialog";
@@ -39,6 +39,57 @@ const CATEGORY_TABS: CategoryTab[] = [
   { key: "services", label: "Services", tone: "services" },
   { key: "household-bills", label: "Household bills", tone: "bills" },
 ];
+
+const HOUSEHOLD_TIPS = [
+  {
+    title: "Working-from-home tax relief",
+    detail: "If your employer requires home working, you may be able to claim UK tax relief for eligible years.",
+  },
+  {
+    title: "Council Tax single-person discount",
+    detail: "If only one adult lives in your home, check if your council can reduce your bill by 25%.",
+  },
+  {
+    title: "Council Tax disability reduction",
+    detail: "If someone in your home needs extra space due to disability, you may qualify for a lower band charge.",
+  },
+  {
+    title: "Energy back-billing protection",
+    detail: "In many cases, suppliers cannot charge for energy used over 12 months ago when they failed to bill correctly.",
+  },
+  {
+    title: "Warm Home Discount support",
+    detail: "Low-income UK households may be eligible for annual support applied directly to electricity bills.",
+  },
+  {
+    title: "WaterSure scheme checks",
+    detail: "Some households with medical needs or larger families can cap metered water charges under WaterSure.",
+  },
+  {
+    title: "Broadband social tariffs",
+    detail: "If you receive qualifying benefits, you may access lower-cost broadband plans from major providers.",
+  },
+  {
+    title: "Bank account switch cash offers",
+    detail: "Current account switches can include cash incentives if you meet direct debit and deposit requirements.",
+  },
+  {
+    title: "PPI and finance complaint deadlines",
+    detail: "For finance products and unfair charges, check complaint windows and free ombudsman routes first.",
+  },
+  {
+    title: "Rent deposit protection rights",
+    detail: "In England and Wales, deposits should be protected; missing protection can support compensation claims.",
+  },
+  {
+    title: "Prepayment meter safeguards",
+    detail: "If on prepay, review standing charges and ask your supplier about debt support and hardship policies.",
+  },
+  {
+    title: "Home insurance renewal uplift",
+    detail: "Compare renewal prices yearly; insurers often reserve better rates for customers who re-shop.",
+  },
+] as const;
 
 const GOODS_KEYWORDS = [
   "clothing",
@@ -181,10 +232,21 @@ export function DashboardScreen() {
   const { width } = useWindowDimensions();
   const isMobile = width < 760;
   const [selectedCategory, setSelectedCategory] = useState<ClaimCategory>("goods");
-  const [dismissTaxRelief, setDismissTaxRelief] = useState(false);
+  const [dismissHouseholdTips, setDismissHouseholdTips] = useState(false);
+  const [activeHouseholdTipIndex, setActiveHouseholdTipIndex] = useState(0);
   const [activeProductClaim, setActiveProductClaim] = useState<ClaimOpportunity | null>(null);
   const [activeBillClaim, setActiveBillClaim] = useState<ClaimOpportunity | null>(null);
   const [submittingClaim, setSubmittingClaim] = useState(false);
+
+  useEffect(() => {
+    if (dismissHouseholdTips) {
+      return;
+    }
+    const timer = setInterval(() => {
+      setActiveHouseholdTipIndex((current) => (current + 1) % HOUSEHOLD_TIPS.length);
+    }, 20_000);
+    return () => clearInterval(timer);
+  }, [dismissHouseholdTips]);
 
   const opportunities = useMemo<ClaimOpportunity[]>(() => {
     const rows: ClaimOpportunity[] = [];
@@ -229,6 +291,7 @@ export function DashboardScreen() {
     () => opportunities.reduce((sum, item) => sum + item.estimatedClaimCents, 0),
     [opportunities],
   );
+  const activeHouseholdTip = HOUSEHOLD_TIPS[activeHouseholdTipIndex];
 
   const handleStartClaim = (item: ClaimOpportunity) => {
     if (claimLimitReached && claimTier !== "unlimited") {
@@ -370,18 +433,21 @@ export function DashboardScreen() {
             </View>
           </View>
 
-          {!dismissTaxRelief && selectedCategory === "household-bills" ? (
+          {!dismissHouseholdTips ? (
             <View style={styles.taxReliefCard}>
               <View style={styles.taxReliefIcon}>
-                <Text style={styles.taxReliefIconText}>▣</Text>
+                <Text style={styles.taxReliefIconText}>i</Text>
               </View>
               <View style={styles.taxReliefBody}>
-                <Text style={styles.taxReliefTitle}>Working-from-home tax relief</Text>
+                <Text style={styles.taxReliefLabel}>
+                  UK household tip {activeHouseholdTipIndex + 1} of {HOUSEHOLD_TIPS.length}
+                </Text>
+                <Text style={styles.taxReliefTitle}>{activeHouseholdTip.title}</Text>
                 <Text style={styles.taxReliefMeta}>
-                  You may be owed for prior tax years. Typical UK claim values range from £62 to £140.
+                  {activeHouseholdTip.detail}
                 </Text>
               </View>
-              <Pressable onPress={() => setDismissTaxRelief(true)} style={styles.taxReliefDismiss}>
+              <Pressable onPress={() => setDismissHouseholdTips(true)} style={styles.taxReliefDismiss}>
                 <Text style={styles.taxReliefDismissText}>×</Text>
               </Pressable>
             </View>
@@ -856,6 +922,14 @@ const styles = StyleSheet.create({
   taxReliefBody: {
     flex: 1,
     gap: 2,
+  },
+  taxReliefLabel: {
+    color: "#5D6777",
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+    marginBottom: 2,
   },
   taxReliefTitle: {
     color: colors.webLandingText,
