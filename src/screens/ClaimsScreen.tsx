@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { useMemo, useState } from "react";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { Card } from "@/components/Card";
 import { EmptyState } from "@/components/EmptyState";
 import { Screen } from "@/components/Screen";
@@ -9,52 +9,75 @@ import { colors, spacing } from "@/theme/colors";
 import type { Claim, ClaimStatus } from "@/types/domain";
 import { formatDate, formatCents } from "@/utils/format";
 
-type ClaimDisplayState = "Ready" | "Pending" | "Failed" | "Successful";
+type ClaimDisplayState = "Pending" | "Rejected" | "Approved";
 
-const CLAIM_STATE_ORDER: ClaimDisplayState[] = ["Ready", "Pending", "Failed", "Successful"];
+const CLAIM_STATE_ORDER: ClaimDisplayState[] = ["Pending", "Rejected", "Approved"];
 
 function toClaimDisplayState(status: ClaimStatus): ClaimDisplayState {
-  if (status === "paid") return "Successful";
-  if (status === "rejected") return "Failed";
-  if (status === "submitted" || status === "processing") return "Pending";
-  return "Ready";
+  if (status === "paid") return "Approved";
+  if (status === "rejected") return "Rejected";
+  return "Pending";
 }
 
 function getStateStyles(state: ClaimDisplayState) {
-  if (state === "Successful") {
+  if (state === "Approved") {
     return { backgroundColor: colors.successSoft, borderColor: "#CDEEDC", textColor: colors.success };
   }
-  if (state === "Failed") {
+  if (state === "Rejected") {
     return { backgroundColor: colors.dangerSoft, borderColor: "#F2C6D3", textColor: colors.danger };
   }
-  if (state === "Pending") {
-    return { backgroundColor: colors.warningSoft, borderColor: "#F3D9B4", textColor: colors.warning };
-  }
-  return { backgroundColor: colors.infoSoft, borderColor: "#CBD8F8", textColor: colors.info };
+  return { backgroundColor: colors.warningSoft, borderColor: "#F3D9B4", textColor: colors.warning };
 }
 
 export function ClaimsScreen() {
-  const { claims, refreshing, refresh } = useAppData();
+  const { claims, refreshing, refresh, deleteClaimById } = useAppData();
+  const [hiddenClaimIds, setHiddenClaimIds] = useState<string[]>([]);
   const chosenClaims = useMemo(
     () =>
       claims
-        .filter((claim) => Boolean(claim.id) && Boolean(claim.productName))
+        .filter(
+          (claim) =>
+            Boolean(claim.id) &&
+            Boolean(claim.productName) &&
+            !hiddenClaimIds.includes(claim.id),
+        )
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
-    [claims],
+    [claims, hiddenClaimIds],
   );
 
   const groupedClaims = useMemo(() => {
     const groups: Record<ClaimDisplayState, Claim[]> = {
-      Ready: [],
       Pending: [],
-      Failed: [],
-      Successful: [],
+      Rejected: [],
+      Approved: [],
     };
     for (const claim of chosenClaims) {
       groups[toClaimDisplayState(claim.status)].push(claim);
     }
     return groups;
   }, [chosenClaims]);
+
+  const handleDeleteClaim = (claim: Claim) => {
+    Alert.alert("Delete claim", "Remove this claim from the Claims page?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            deleteClaimById(claim.id);
+            setHiddenClaimIds((current) =>
+              current.includes(claim.id) ? current : [...current, claim.id],
+            );
+          } catch (error) {
+            const message =
+              error instanceof Error ? error.message : "Could not delete claim.";
+            Alert.alert("Delete failed", message);
+          }
+        },
+      },
+    ]);
+  };
 
   return (
     <Screen onRefresh={refresh} refreshing={refreshing}>
@@ -85,6 +108,13 @@ export function ClaimsScreen() {
                       <Card key={claim.id}>
                         <View style={styles.row}>
                           <Text style={styles.name}>{claim.productName}</Text>
+                          <Pressable
+                            style={styles.deleteButton}
+                            onPress={() => handleDeleteClaim(claim)}
+                            accessibilityLabel="Delete claim"
+                          >
+                            <Text style={styles.deleteButtonText}>🗑</Text>
+                          </Pressable>
                           <View
                             style={[
                               styles.stateBadge,
@@ -152,6 +182,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "800",
     flex: 1,
+  },
+  deleteButton: {
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  deleteButtonText: {
+    fontSize: 13,
   },
   stateBadge: {
     borderRadius: 999,

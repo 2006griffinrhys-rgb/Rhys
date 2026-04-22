@@ -133,6 +133,7 @@ type AppDataContextValue = AppDataState & {
     signOffName: string;
     requestedOutcome: BillClaimOutcome;
   }) => Promise<Claim>;
+  deleteClaimById: (claimId: string) => void;
 };
 
 const EMPTY_STATS: DashboardStats = {
@@ -678,6 +679,28 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     [state.claims, user?.id, userPlan],
   );
 
+  const deleteClaimById = useCallback((claimId: string) => {
+    setState((current) => {
+      const nextClaims = current.claims.filter((claim) => claim.id !== claimId);
+      if (nextClaims.length === current.claims.length) {
+        return current;
+      }
+      return {
+        ...current,
+        claims: nextClaims,
+        stats: {
+          ...current.stats,
+          claimsInProgress: nextClaims.filter(
+            (claim) =>
+              claim.status === "draft" ||
+              claim.status === "submitted" ||
+              claim.status === "processing",
+          ).length,
+        },
+      };
+    });
+  }, []);
+
   const runInboxScan = useCallback(async (providers?: EmailProviderId[]) => {
     if (!user?.id) return;
 
@@ -1089,6 +1112,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       createManualClaimDraft,
       submitProductClaimWithEmail,
       submitBillClaimWithEmail,
+      deleteClaimById,
     }),
     [
       state,
@@ -1124,6 +1148,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       createManualClaimDraft,
       submitProductClaimWithEmail,
       submitBillClaimWithEmail,
+      deleteClaimById,
     ],
   );
 
