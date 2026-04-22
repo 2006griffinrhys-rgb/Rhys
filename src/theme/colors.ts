@@ -32,6 +32,26 @@ export const colors = {
   borderSoft: "#3B6DB3",
   overlay: "rgba(255,255,255,0.04)",
   shadow: "#020B1E",
+  webLandingBackground: "#F6F7FB",
+  webLandingText: "#09142D",
+  webLandingSubtext: "#5E6675",
+  webLandingBorder: "#E7EAF1",
+  webLandingPill: "#F3F4F9",
+  webLandingAccentPink: "#FF3D57",
+  webLandingAccentOrange: "#FF7A00",
+  webLandingBrandRed: "#F24040",
+  webLandingInputBg: "#FFFFFF",
+  // Auth landing aliases for the pre-login marketing screen
+  authBackground: "#F6F7FB",
+  authSurface: "#FFFFFF",
+  authSurfaceSoft: "#F3F4F9",
+  authTextPrimary: "#09142D",
+  authTextSecondary: "#5E6675",
+  authMuted: "#7D8696",
+  authBorder: "#E7EAF1",
+  authBorderStrong: "#D7DDE8",
+  authBrand: "#F24040",
+  authDanger: "#C43A3A",
 } as const;
 
 export const spacing = {

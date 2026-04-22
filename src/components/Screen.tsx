@@ -9,6 +9,7 @@ type ScreenProps = PropsWithChildren<{
   onRefresh?: () => Promise<void> | void;
   refreshing?: boolean;
   contentContainerStyle?: StyleProp<ViewStyle>;
+  backgroundColor?: string;
 }>;
 
 export function Screen({
@@ -17,19 +18,20 @@ export function Screen({
   onRefresh,
   refreshing = false,
   contentContainerStyle,
+  backgroundColor = colors.background,
 }: ScreenProps) {
   if (!scroll) {
     return (
-      <SafeAreaView edges={["top"]} style={styles.safeArea}>
-        <View style={styles.container}>{children}</View>
+      <SafeAreaView edges={["top"]} style={[styles.safeArea, { backgroundColor }]}>
+        <View style={[styles.container, { backgroundColor }]}>{children}</View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView edges={["top"]} style={styles.safeArea}>
+    <SafeAreaView edges={["top"]} style={[styles.safeArea, { backgroundColor }]}>
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, contentContainerStyle]}
+        contentContainerStyle={[styles.scrollContent, { backgroundColor }, contentContainerStyle]}
         refreshControl={
           onRefresh ? (
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
