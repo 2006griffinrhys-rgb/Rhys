@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Alert, Linking, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { BillClaimDialog } from "@/components/BillClaimDialog";
 import { ProductClaimDialog } from "@/components/ProductClaimDialog";
 import { Screen } from "@/components/Screen";
@@ -44,50 +44,62 @@ const HOUSEHOLD_TIPS = [
   {
     title: "Working-from-home tax relief",
     detail: "If your employer requires home working, you may be able to claim UK tax relief for eligible years.",
+    linkUrl: "https://www.gov.uk/tax-relief-for-employees/working-at-home",
   },
   {
     title: "Council Tax single-person discount",
     detail: "If only one adult lives in your home, check if your council can reduce your bill by 25%.",
+    linkUrl: "https://www.gov.uk/council-tax/who-has-to-pay",
   },
   {
     title: "Council Tax disability reduction",
     detail: "If someone in your home needs extra space due to disability, you may qualify for a lower band charge.",
+    linkUrl: "https://www.gov.uk/council-tax/discounts-for-disabled-people",
   },
   {
     title: "Energy back-billing protection",
     detail: "In many cases, suppliers cannot charge for energy used over 12 months ago when they failed to bill correctly.",
+    linkUrl: "https://www.ofgem.gov.uk/check-energy-back-billing-rules",
   },
   {
     title: "Warm Home Discount support",
     detail: "Low-income UK households may be eligible for annual support applied directly to electricity bills.",
+    linkUrl: "https://www.gov.uk/the-warm-home-discount-scheme",
   },
   {
     title: "WaterSure scheme checks",
     detail: "Some households with medical needs or larger families can cap metered water charges under WaterSure.",
+    linkUrl: "https://www.ofwat.gov.uk/households/supply-and-standards/watersure/",
   },
   {
     title: "Broadband social tariffs",
     detail: "If you receive qualifying benefits, you may access lower-cost broadband plans from major providers.",
+    linkUrl: "https://www.ofcom.org.uk/phones-and-broadband/saving-money/social-tariffs",
   },
   {
     title: "Bank account switch cash offers",
     detail: "Current account switches can include cash incentives if you meet direct debit and deposit requirements.",
+    linkUrl: "https://www.currentaccountswitch.co.uk/",
   },
   {
     title: "PPI and finance complaint deadlines",
     detail: "For finance products and unfair charges, check complaint windows and free ombudsman routes first.",
+    linkUrl: "https://www.financial-ombudsman.org.uk/consumers/how-to-complain",
   },
   {
     title: "Rent deposit protection rights",
     detail: "In England and Wales, deposits should be protected; missing protection can support compensation claims.",
+    linkUrl: "https://www.gov.uk/tenancy-deposit-protection",
   },
   {
     title: "Prepayment meter safeguards",
     detail: "If on prepay, review standing charges and ask your supplier about debt support and hardship policies.",
+    linkUrl: "https://www.ofgem.gov.uk/information-consumers/energy-advice-households/prepayment-meters",
   },
   {
     title: "Home insurance renewal uplift",
     detail: "Compare renewal prices yearly; insurers often reserve better rates for customers who re-shop.",
+    linkUrl: "https://www.fca.org.uk/consumers/renewing-insurance-policy",
   },
 ] as const;
 
@@ -289,6 +301,15 @@ export function DashboardScreen() {
   );
   const activeHouseholdTip = HOUSEHOLD_TIPS[activeHouseholdTipIndex];
 
+  const openTipLink = async () => {
+    const supported = await Linking.canOpenURL(activeHouseholdTip.linkUrl);
+    if (!supported) {
+      Alert.alert("Could not open link", "Please try again in your browser.");
+      return;
+    }
+    await Linking.openURL(activeHouseholdTip.linkUrl);
+  };
+
   const handleStartClaim = (item: ClaimOpportunity) => {
     if (claimLimitReached && claimTier !== "unlimited") {
       Alert.alert(
@@ -434,13 +455,13 @@ export function DashboardScreen() {
               <Text style={styles.taxReliefIconText}>i</Text>
             </View>
             <View style={styles.taxReliefBody}>
-              <Text style={styles.taxReliefLabel}>
-                UK household tip {activeHouseholdTipIndex + 1} of {HOUSEHOLD_TIPS.length}
-              </Text>
               <Text style={styles.taxReliefTitle}>{activeHouseholdTip.title}</Text>
               <Text style={styles.taxReliefMeta}>
                 {activeHouseholdTip.detail}
               </Text>
+              <Pressable onPress={() => void openTipLink()} style={styles.tipLinkButton}>
+                <Text style={styles.tipLinkText}>Learn more</Text>
+              </Pressable>
             </View>
           </View>
 
@@ -914,14 +935,6 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
-  taxReliefLabel: {
-    color: "#5D6777",
-    fontSize: 11,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.3,
-    marginBottom: 2,
-  },
   taxReliefTitle: {
     color: colors.webLandingText,
     fontSize: 14,
@@ -931,5 +944,16 @@ const styles = StyleSheet.create({
     color: colors.webLandingSubtext,
     fontSize: 12,
     lineHeight: 17,
+  },
+  tipLinkButton: {
+    marginTop: spacing.xs,
+    alignSelf: "flex-start",
+    paddingVertical: 2,
+  },
+  tipLinkText: {
+    color: colors.authBrand,
+    fontSize: 12,
+    fontWeight: "700",
+    textDecorationLine: "underline",
   },
 });
