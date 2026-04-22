@@ -166,155 +166,169 @@ export function SettingsScreen() {
 
   return (
     <Screen>
-      <SectionTitle title="Settings" subtitle="Account, sync and environment details." />
+      <View style={styles.page}>
+        <View style={styles.container}>
+          <SectionTitle title="Settings" subtitle="Account, sync and environment details." />
 
-      <Card>
-        <Text style={styles.emailLabel}>Signed in as</Text>
-        <Text style={styles.email}>{user?.email ?? "Unknown user"}</Text>
-      </Card>
+          <Card>
+            <Text style={styles.emailLabel}>Signed in as</Text>
+            <Text style={styles.email}>{user?.email ?? "Unknown user"}</Text>
+          </Card>
 
-      <Card>
-        <Text style={styles.groupTitle}>Data Sync</Text>
-        <Text style={styles.envLabel}>Provider coverage</Text>
-        <Text style={styles.envValue}>{providerCoverageLabel}</Text>
-        <View style={styles.providerGrid}>
-          {PROVIDERS.map((provider) => {
-            const selected = inboxScanProviders.includes(provider.id);
-            return (
-              <Pressable
-                key={provider.id}
-                onPress={() => toggleProvider(provider.id)}
-                style={[styles.providerChip, selected && styles.providerChipActive]}
-              >
-                <Text
-                  style={[styles.providerChipText, selected && styles.providerChipTextActive]}
-                >
-                  {provider.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-        <Pressable style={styles.primaryButton} onPress={refresh} disabled={refreshing}>
-          <Text style={styles.primaryButtonText}>
-            {refreshing ? "Refreshing..." : "Refresh data"}
-          </Text>
-        </Pressable>
-        <Text style={styles.scanMeta}>
-          {scanningInbox
-            ? "Background scanner is processing now."
-            : "Background scanner is active and continuously checks selected providers."}
-        </Text>
-        {inboxScanLastCount !== null ? (
-          <Text style={styles.scanMeta}>
-            Last scan: {inboxScanLastCount.toLocaleString("en-GB")} emails processed
-          </Text>
-        ) : null}
-      </Card>
-
-      <Card>
-        <Text style={styles.groupTitle}>Subscription</Text>
-        <Text style={styles.envLabel}>Billing interval</Text>
-        <View style={styles.currencyRow}>
-          {BILLING_INTERVALS.map((interval) => {
-            const selected = billingInterval === interval.id;
-            return (
-              <Pressable
-                key={interval.id}
-                onPress={() => setBillingInterval(interval.id)}
-                style={[styles.currencyButton, selected && styles.currencyButtonActive]}
-              >
-                <Text style={[styles.currencyButtonText, selected && styles.currencyButtonTextActive]}>
-                  {interval.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-        <View style={styles.planGroup}>
-          {renderPlanButton("free", "Free · 5 claims/mo · no bill monitoring")}
-          {renderPlanButton("premium", "Premium £4.99 · 20 claims/mo + bill alerts + chasing")}
-          {renderPlanButton("unlimited", "Unlimited £9.99 · unlimited claims + priority")}
-        </View>
-        <Text style={styles.scanMeta}>
-          Active plan price: {formatCents(activePlanPriceCents, "GBP")} {billingInterval === "yearly" ? "per year" : "per month"}
-        </Text>
-        <Text style={styles.envLabel}>Downgrade behavior</Text>
-        <Pressable
-          style={[styles.toggleRow, keepAccessUntilPeriodEnd && styles.toggleRowActive]}
-          onPress={() => setKeepAccessUntilPeriodEnd(!keepAccessUntilPeriodEnd)}
-        >
-          <Text style={styles.toggleTitle}>Keep access until period end (recommended)</Text>
-          <Text style={styles.toggleState}>{keepAccessUntilPeriodEnd ? "On" : "Off"}</Text>
-        </Pressable>
-        {scheduledDowngradeAt ? (
-          <Text style={styles.scanMeta}>Scheduled downgrade date: {formatDate(scheduledDowngradeAt)}</Text>
-        ) : null}
-        <Pressable style={styles.ghostButton} onPress={handleOpenBillingPortal}>
-          <Text style={styles.ghostButtonText}>Open Stripe billing portal</Text>
-        </Pressable>
-      </Card>
-
-      <Card>
-        <Text style={styles.groupTitle}>Currency</Text>
-        <Text style={styles.envLabel}>Choose your preferred local currency</Text>
-        <View style={styles.currencyRow}>
-          {CURRENCIES.map(renderCurrencyButton)}
-        </View>
-      </Card>
-
-      <Card>
-        <Text style={styles.groupTitle}>Environment</Text>
-        <View style={styles.envGrid}>
-          <View style={styles.envRow}>
-            <Text style={styles.envLabel}>Supabase URL</Text>
-            <Text style={styles.envValue}>{envSummary.supabaseUrl}</Text>
-          </View>
-          <View style={styles.envRow}>
-            <Text style={styles.envLabel}>Project ID</Text>
-            <Text style={styles.envValue}>{envSummary.projectId}</Text>
-          </View>
-          <View style={styles.envRow}>
-            <Text style={styles.envLabel}>Using fallback</Text>
-            <Text style={styles.envValue}>{envSummary.usingFallback ? "Yes" : "No"}</Text>
-          </View>
-          <View style={styles.envRow}>
-            <Text style={styles.envLabel}>Auth mode</Text>
-            <Text style={styles.envValue}>{isDemoAuth ? "Demo auth" : "Supabase auth"}</Text>
-          </View>
-          <View style={styles.envRow}>
-            <Text style={styles.envLabel}>Stripe billing</Text>
-            <Text style={styles.envValue}>{envSummary.stripeBillingEnabled ? "Enabled" : "Disabled"}</Text>
-          </View>
-          <View style={styles.envRow}>
-            <Text style={styles.envLabel}>Background inbox task</Text>
-            <Text style={styles.envValue}>
-              {envSummary.backgroundInboxTaskEnabled
-                ? `Enabled (${envSummary.backgroundInboxTaskIntervalSeconds}s target)`
-                : "Disabled"}
+          <Card>
+            <Text style={styles.groupTitle}>Data Sync</Text>
+            <Text style={styles.envLabel}>Provider coverage</Text>
+            <Text style={styles.envValue}>{providerCoverageLabel}</Text>
+            <View style={styles.providerGrid}>
+              {PROVIDERS.map((provider) => {
+                const selected = inboxScanProviders.includes(provider.id);
+                return (
+                  <Pressable
+                    key={provider.id}
+                    onPress={() => toggleProvider(provider.id)}
+                    style={[styles.providerChip, selected && styles.providerChipActive]}
+                  >
+                    <Text
+                      style={[styles.providerChipText, selected && styles.providerChipTextActive]}
+                    >
+                      {provider.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Pressable style={styles.primaryButton} onPress={refresh} disabled={refreshing}>
+              <Text style={styles.primaryButtonText}>
+                {refreshing ? "Refreshing..." : "Refresh data"}
+              </Text>
+            </Pressable>
+            <Text style={styles.scanMeta}>
+              {scanningInbox
+                ? "Background scanner is processing now."
+                : "Background scanner is active and continuously checks selected providers."}
             </Text>
-          </View>
-          <View style={styles.envRow}>
-            <Text style={styles.envLabel}>Server scan fallback</Text>
-            <Text style={styles.envValue}>{envSummary.serverScanFallbackEnabled ? "Enabled" : "Disabled"}</Text>
-          </View>
-        </View>
-      </Card>
+            {inboxScanLastCount !== null ? (
+              <Text style={styles.scanMeta}>
+                Last scan: {inboxScanLastCount.toLocaleString("en-GB")} emails processed
+              </Text>
+            ) : null}
+          </Card>
 
-      <Card>
-        <Text style={styles.groupTitle}>Support</Text>
-        <Pressable style={styles.ghostButton} onPress={openSupport}>
-          <Text style={styles.ghostButtonText}>Open Prooof website</Text>
-        </Pressable>
-        <Pressable style={styles.signOutButton} onPress={handleSignOut}>
-          <Text style={styles.signOutButtonText}>Sign out</Text>
-        </Pressable>
-      </Card>
+          <Card>
+            <Text style={styles.groupTitle}>Subscription</Text>
+            <Text style={styles.envLabel}>Billing interval</Text>
+            <View style={styles.currencyRow}>
+              {BILLING_INTERVALS.map((interval) => {
+                const selected = billingInterval === interval.id;
+                return (
+                  <Pressable
+                    key={interval.id}
+                    onPress={() => setBillingInterval(interval.id)}
+                    style={[styles.currencyButton, selected && styles.currencyButtonActive]}
+                  >
+                    <Text style={[styles.currencyButtonText, selected && styles.currencyButtonTextActive]}>
+                      {interval.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <View style={styles.planGroup}>
+              {renderPlanButton("free", "Free · 5 claims/mo · no bill monitoring")}
+              {renderPlanButton("premium", "Premium £4.99 · 20 claims/mo + bill alerts + chasing")}
+              {renderPlanButton("unlimited", "Unlimited £9.99 · unlimited claims + priority")}
+            </View>
+            <Text style={styles.scanMeta}>
+              Active plan price: {formatCents(activePlanPriceCents, "GBP")} {billingInterval === "yearly" ? "per year" : "per month"}
+            </Text>
+            <Text style={styles.envLabel}>Downgrade behavior</Text>
+            <Pressable
+              style={[styles.toggleRow, keepAccessUntilPeriodEnd && styles.toggleRowActive]}
+              onPress={() => setKeepAccessUntilPeriodEnd(!keepAccessUntilPeriodEnd)}
+            >
+              <Text style={styles.toggleTitle}>Keep access until period end (recommended)</Text>
+              <Text style={styles.toggleState}>{keepAccessUntilPeriodEnd ? "On" : "Off"}</Text>
+            </Pressable>
+            {scheduledDowngradeAt ? (
+              <Text style={styles.scanMeta}>Scheduled downgrade date: {formatDate(scheduledDowngradeAt)}</Text>
+            ) : null}
+            <Pressable style={styles.ghostButton} onPress={handleOpenBillingPortal}>
+              <Text style={styles.ghostButtonText}>Open Stripe billing portal</Text>
+            </Pressable>
+          </Card>
+
+          <Card>
+            <Text style={styles.groupTitle}>Currency</Text>
+            <Text style={styles.envLabel}>Choose your preferred local currency</Text>
+            <View style={styles.currencyRow}>
+              {CURRENCIES.map(renderCurrencyButton)}
+            </View>
+          </Card>
+
+          <Card>
+            <Text style={styles.groupTitle}>Environment</Text>
+            <View style={styles.envGrid}>
+              <View style={styles.envRow}>
+                <Text style={styles.envLabel}>Supabase URL</Text>
+                <Text style={styles.envValue}>{envSummary.supabaseUrl}</Text>
+              </View>
+              <View style={styles.envRow}>
+                <Text style={styles.envLabel}>Project ID</Text>
+                <Text style={styles.envValue}>{envSummary.projectId}</Text>
+              </View>
+              <View style={styles.envRow}>
+                <Text style={styles.envLabel}>Using fallback</Text>
+                <Text style={styles.envValue}>{envSummary.usingFallback ? "Yes" : "No"}</Text>
+              </View>
+              <View style={styles.envRow}>
+                <Text style={styles.envLabel}>Auth mode</Text>
+                <Text style={styles.envValue}>{isDemoAuth ? "Demo auth" : "Supabase auth"}</Text>
+              </View>
+              <View style={styles.envRow}>
+                <Text style={styles.envLabel}>Stripe billing</Text>
+                <Text style={styles.envValue}>{envSummary.stripeBillingEnabled ? "Enabled" : "Disabled"}</Text>
+              </View>
+              <View style={styles.envRow}>
+                <Text style={styles.envLabel}>Background inbox task</Text>
+                <Text style={styles.envValue}>
+                  {envSummary.backgroundInboxTaskEnabled
+                    ? `Enabled (${envSummary.backgroundInboxTaskIntervalSeconds}s target)`
+                    : "Disabled"}
+                </Text>
+              </View>
+              <View style={styles.envRow}>
+                <Text style={styles.envLabel}>Server scan fallback</Text>
+                <Text style={styles.envValue}>{envSummary.serverScanFallbackEnabled ? "Enabled" : "Disabled"}</Text>
+              </View>
+            </View>
+          </Card>
+
+          <Card>
+            <Text style={styles.groupTitle}>Support</Text>
+            <Pressable style={styles.ghostButton} onPress={openSupport}>
+              <Text style={styles.ghostButtonText}>Open Prooof website</Text>
+            </Pressable>
+            <Pressable style={styles.signOutButton} onPress={handleSignOut}>
+              <Text style={styles.signOutButtonText}>Sign out</Text>
+            </Pressable>
+          </Card>
+        </View>
+      </View>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  page: {
+    width: "100%",
+    alignItems: "center",
+  },
+  container: {
+    width: "100%",
+    maxWidth: 1120,
+    gap: spacing.md,
+    paddingBottom: spacing.lg,
+  },
   emailLabel: {
     color: colors.textMuted,
     fontSize: 12,
@@ -372,9 +386,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.surfaceSoft,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
   },
   providerChipActive: {
     borderColor: colors.primary,
@@ -382,9 +396,10 @@ const styles = StyleSheet.create({
   },
   providerChipText: {
     color: colors.textSecondary,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "700",
     letterSpacing: 0.2,
+    textTransform: "uppercase",
   },
   providerChipTextActive: {
     color: colors.primaryText,
@@ -392,10 +407,10 @@ const styles = StyleSheet.create({
   planButton: {
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    borderRadius: 12,
+    borderRadius: 16,
     backgroundColor: colors.surfaceSoft,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
   },
   planButtonActive: {
     borderColor: colors.primary,
@@ -426,9 +441,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderSoft,
     backgroundColor: colors.surfaceSoft,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
   },
   currencyButtonActive: {
     borderColor: colors.primary,
@@ -436,9 +451,10 @@ const styles = StyleSheet.create({
   },
   currencyButtonText: {
     color: colors.textSecondary,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "700",
     letterSpacing: 0.2,
+    textTransform: "uppercase",
   },
   currencyButtonTextActive: {
     color: colors.primaryText,

@@ -5,7 +5,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { Screen } from "@/components/Screen";
 import { SectionTitle } from "@/components/SectionTitle";
 import { useAppData } from "@/providers/AppDataProvider";
-import { colors } from "@/theme/colors";
+import { colors, spacing } from "@/theme/colors";
 import type { Claim } from "@/types/domain";
 import { formatCents, formatDate } from "@/utils/format";
 
@@ -82,63 +82,94 @@ export function RecallsScreen() {
 
   return (
     <Screen onRefresh={refresh} refreshing={refreshing}>
-      <SectionTitle
-        title="Manufacturer recalls"
-        subtitle={`${manufacturerRecalls.length} automatically identified manufacturer recall item(s).`}
-      />
+      <View style={styles.page}>
+        <View style={styles.container}>
+          <SectionTitle
+            title="Manufacturer recalls"
+            subtitle={`${manufacturerRecalls.length} automatically identified manufacturer recall item(s).`}
+          />
 
-      {manufacturerRecalls.length === 0 ? (
-        <EmptyState
-          title="No manufacturer recalls found"
-          subtitle="This tab only shows products automatically identified as recalled by the manufacturer."
-        />
-      ) : (
-        manufacturerRecalls.map((recall) => {
-          const claimState = resolveRecallClaimState(recall.id, claims);
-          const badge = getClaimStateBadgeStyle(claimState);
-          return (
-            <Card key={recall.id}>
-              <View style={styles.itemHeader}>
-                <View style={styles.itemHeadContent}>
-                  <Text style={styles.itemTitle}>{recall.productName}</Text>
-                  <Text style={styles.itemMeta}>
-                    {recall.source} • {formatDate(recall.publishedAt)}
-                  </Text>
-                </View>
-                <View style={[styles.claimStateBadge, { backgroundColor: badge.backgroundColor, borderColor: badge.borderColor }]}>
-                  <Text style={[styles.claimStateText, { color: badge.color }]}>{claimState}</Text>
-                </View>
-              </View>
-              <Text style={styles.itemBody}>{recall.details}</Text>
-              <Pressable
-                onPress={() => void handleCreateClaim(recall.id)}
-                style={[
-                  styles.claimButton,
-                  (claimState === "Pending" || claimState === "Successful") && styles.claimButtonDisabled,
-                  claimLimitReached && claimTier !== "unlimited" && styles.claimButtonDisabled,
-                ]}
-              >
-                <Text style={styles.claimButtonText}>
-                  {claimState === "Pending"
-                    ? "Claim pending"
-                    : claimState === "Successful"
-                      ? "Claim successful"
-                      : claimLimitReached && claimTier !== "unlimited"
-                        ? "Upgrade to file claim"
-                        : claimState === "Failed"
-                          ? `Retry claim (${formatCents(recall.estimatedPayoutCents, recall.estimatedPayoutCurrency)})`
-                          : `Create claim (${formatCents(recall.estimatedPayoutCents, recall.estimatedPayoutCurrency)})`}
-                </Text>
-              </Pressable>
-            </Card>
-          );
-        })
-      )}
+          {manufacturerRecalls.length === 0 ? (
+            <EmptyState
+              title="No manufacturer recalls found"
+              subtitle="This tab only shows products automatically identified as recalled by the manufacturer."
+            />
+          ) : (
+            manufacturerRecalls.map((recall) => {
+              const claimState = resolveRecallClaimState(recall.id, claims);
+              const badge = getClaimStateBadgeStyle(claimState);
+              return (
+                <Card key={recall.id}>
+                  <View style={styles.itemHeader}>
+                    <View style={styles.itemHeadContent}>
+                      <Text style={styles.itemTitle}>{recall.productName}</Text>
+                      <Text style={styles.itemMeta}>
+                        {recall.source} • {formatDate(recall.publishedAt)}
+                      </Text>
+                    </View>
+                    <View
+                      style={[
+                        styles.claimStateBadge,
+                        {
+                          backgroundColor: badge.backgroundColor,
+                          borderColor: badge.borderColor,
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.claimStateText, { color: badge.color }]}>{claimState}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.itemBody}>{recall.details}</Text>
+                  <Pressable
+                    onPress={() => void handleCreateClaim(recall.id)}
+                    style={[
+                      styles.claimButton,
+                      (claimState === "Pending" || claimState === "Successful") &&
+                        styles.claimButtonDisabled,
+                      claimLimitReached &&
+                        claimTier !== "unlimited" &&
+                        styles.claimButtonDisabled,
+                    ]}
+                  >
+                    <Text style={styles.claimButtonText}>
+                      {claimState === "Pending"
+                        ? "Claim pending"
+                        : claimState === "Successful"
+                          ? "Claim successful"
+                          : claimLimitReached && claimTier !== "unlimited"
+                            ? "Upgrade to file claim"
+                            : claimState === "Failed"
+                              ? `Retry claim (${formatCents(
+                                  recall.estimatedPayoutCents,
+                                  recall.estimatedPayoutCurrency,
+                                )})`
+                              : `Create claim (${formatCents(
+                                  recall.estimatedPayoutCents,
+                                  recall.estimatedPayoutCurrency,
+                                )})`}
+                    </Text>
+                  </Pressable>
+                </Card>
+              );
+            })
+          )}
+        </View>
+      </View>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  page: {
+    width: "100%",
+    alignItems: "center",
+  },
+  container: {
+    width: "100%",
+    maxWidth: 1120,
+    gap: spacing.md,
+    paddingBottom: spacing.lg,
+  },
   itemHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -168,8 +199,8 @@ const styles = StyleSheet.create({
   claimStateBadge: {
     borderRadius: 999,
     borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
     alignSelf: "flex-start",
   },
   claimStateText: {
@@ -182,9 +213,9 @@ const styles = StyleSheet.create({
     marginTop: 12,
     alignSelf: "flex-start",
     backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingVertical: 9,
-    paddingHorizontal: 12,
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
     borderWidth: 1,
     borderColor: colors.primaryBorder,
   },

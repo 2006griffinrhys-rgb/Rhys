@@ -5,7 +5,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { Screen } from "@/components/Screen";
 import { SectionTitle } from "@/components/SectionTitle";
 import { useAppData } from "@/providers/AppDataProvider";
-import { colors } from "@/theme/colors";
+import { colors, spacing } from "@/theme/colors";
 import type { Claim, ClaimStatus } from "@/types/domain";
 import { formatDate, formatCents } from "@/utils/format";
 
@@ -58,76 +58,93 @@ export function ClaimsScreen() {
 
   return (
     <Screen onRefresh={refresh} refreshing={refreshing}>
-      <SectionTitle
-        title="Claims"
-        subtitle="Only claims you have chosen to create are listed here, grouped by claim status."
-      />
+      <View style={styles.page}>
+        <View style={styles.container}>
+          <SectionTitle
+            title="Claims"
+            subtitle="Only claims you have chosen to create are listed here, grouped by claim status."
+          />
 
-      {chosenClaims.length === 0 ? (
-        <EmptyState
-          title="No claims yet"
-          subtitle="Generate a claim from the Recalls tab when one of your products is affected."
-        />
-      ) : (
-        CLAIM_STATE_ORDER.map((state) => {
-          const rows = groupedClaims[state];
-          if (rows.length === 0) return null;
-          return (
-            <View key={state} style={styles.group}>
-              <Text style={styles.groupTitle}>
-                {state} ({rows.length})
-              </Text>
-              {rows.map((claim) => {
-                const stateStyles = getStateStyles(state);
-                return (
-                  <Card key={claim.id}>
-                    <View style={styles.row}>
-                      <Text style={styles.name}>{claim.productName}</Text>
-                      <View
-                        style={[
-                          styles.stateBadge,
-                          {
-                            backgroundColor: stateStyles.backgroundColor,
-                            borderColor: stateStyles.borderColor,
-                          },
-                        ]}
-                      >
-                        <Text style={[styles.stateBadgeText, { color: stateStyles.textColor }]}>{state}</Text>
-                      </View>
-                    </View>
-                    <Text style={styles.reason}>
-                      Estimated payout:{" "}
-                      {formatCents(claim.estimatedPayoutCents, claim.estimatedPayoutCurrency)}
-                    </Text>
-                    <Text style={styles.date}>Created {formatDate(claim.createdAt)}</Text>
-                  </Card>
-                );
-              })}
-            </View>
-          );
-        })
-      )}
+          {chosenClaims.length === 0 ? (
+            <EmptyState
+              title="No claims yet"
+              subtitle="Generate a claim from the Recalls tab when one of your products is affected."
+            />
+          ) : (
+            CLAIM_STATE_ORDER.map((state) => {
+              const rows = groupedClaims[state];
+              if (rows.length === 0) return null;
+              return (
+                <View key={state} style={styles.group}>
+                  <Text style={styles.groupTitle}>
+                    {state} ({rows.length})
+                  </Text>
+                  {rows.map((claim) => {
+                    const stateStyles = getStateStyles(state);
+                    return (
+                      <Card key={claim.id}>
+                        <View style={styles.row}>
+                          <Text style={styles.name}>{claim.productName}</Text>
+                          <View
+                            style={[
+                              styles.stateBadge,
+                              {
+                                backgroundColor: stateStyles.backgroundColor,
+                                borderColor: stateStyles.borderColor,
+                              },
+                            ]}
+                          >
+                            <Text style={[styles.stateBadgeText, { color: stateStyles.textColor }]}>
+                              {state}
+                            </Text>
+                          </View>
+                        </View>
+                        <Text style={styles.reason}>
+                          Estimated payout:{" "}
+                          {formatCents(claim.estimatedPayoutCents, claim.estimatedPayoutCurrency)}
+                        </Text>
+                        <Text style={styles.date}>Created {formatDate(claim.createdAt)}</Text>
+                      </Card>
+                    );
+                  })}
+                </View>
+              );
+            })
+          )}
+        </View>
+      </View>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  page: {
+    width: "100%",
+    alignItems: "center",
+  },
+  container: {
+    width: "100%",
+    maxWidth: 1120,
+    gap: spacing.md,
+    paddingBottom: spacing.lg,
+  },
   group: {
-    gap: 10,
+    gap: spacing.sm,
   },
   groupTitle: {
     color: colors.textPrimary,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "800",
-    marginBottom: 2,
-    letterSpacing: 0.2,
+    marginBottom: spacing.xs,
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
   },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 10,
-    gap: 10,
+    marginBottom: spacing.sm,
+    gap: spacing.sm,
   },
   name: {
     color: colors.textPrimary,
@@ -138,21 +155,21 @@ const styles = StyleSheet.create({
   stateBadge: {
     borderRadius: 999,
     borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
     alignSelf: "flex-start",
   },
   stateBadgeText: {
     fontSize: 11,
     fontWeight: "800",
-    letterSpacing: 0.2,
+    letterSpacing: 0.4,
     textTransform: "uppercase",
   },
   reason: {
     color: colors.textSecondary,
     fontSize: 14,
     lineHeight: 20,
-    marginBottom: 10,
+    marginBottom: spacing.sm,
   },
   date: {
     color: colors.textTertiary,
