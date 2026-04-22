@@ -24,7 +24,10 @@ export function ReceiptsScreen() {
 
   return (
     <Screen onRefresh={refresh} refreshing={refreshing}>
-      <SectionTitle title={`All Receipts (${receipts.length})`} subtitle="Saved receipt history from email scans." />
+      <SectionTitle
+        title={`All Receipts (${receipts.length})`}
+        subtitle="Saved receipt history from email scans."
+      />
       <FlatList
         data={receipts}
         keyExtractor={(item) => item.id}
@@ -44,7 +47,7 @@ export function ReceiptsScreen() {
             </View>
             <Text style={styles.amount}>{formatCurrencyFromCents(item.totalCents, item.currency)}</Text>
             <View style={styles.metaRow}>
-              <Text style={styles.metaText}>{formatDate(item.purchaseDate)}</Text>
+              <Text style={styles.metaText}>Purchased {formatDate(item.purchaseDate)}</Text>
               <Text style={styles.metaText}>{item.source.toUpperCase()}</Text>
             </View>
             <Text style={styles.metaSub}>Status: {item.status}</Text>
@@ -67,7 +70,7 @@ const styles = StyleSheet.create({
   },
   list: {
     gap: 12,
-    paddingBottom: 32,
+    paddingBottom: 28,
   },
   emptyContainer: {
     flexGrow: 1,
@@ -81,13 +84,13 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.textPrimary,
-    fontSize: 17,
-    fontWeight: "700",
+    fontSize: 18,
+    fontWeight: "800",
   },
   amount: {
-    color: colors.primary,
-    fontSize: 20,
-    fontWeight: "700",
+    color: colors.accent,
+    fontSize: 22,
+    fontWeight: "800",
     marginBottom: 10,
   },
   metaRow: {
@@ -97,10 +100,12 @@ const styles = StyleSheet.create({
   },
   metaText: {
     color: colors.textSecondary,
-    fontSize: 13,
+    fontSize: 12,
+    fontWeight: "600",
   },
   metaSub: {
-    color: colors.textSecondary,
+    color: colors.textMuted,
     fontSize: 12,
+    marginTop: 4,
   },
 });

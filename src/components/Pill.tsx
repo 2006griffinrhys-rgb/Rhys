@@ -9,14 +9,14 @@ type PillProps = {
 };
 
 const STATUS_MAP: Record<Status, { bg: string; fg: string; label: string }> = {
-  pending: { bg: "#3A2D00", fg: "#FACC15", label: "Pending" },
-  processed: { bg: "#0E253F", fg: "#60A5FA", label: "Processed" },
-  failed: { bg: "#3B1010", fg: "#FCA5A5", label: "Failed" },
-  draft: { bg: "#1F2937", fg: "#D1D5DB", label: "Draft" },
-  submitted: { bg: "#0E253F", fg: "#93C5FD", label: "Submitted" },
-  processing: { bg: "#3A2D00", fg: "#FACC15", label: "Processing" },
-  paid: { bg: "#0A2C16", fg: "#86EFAC", label: "Paid" },
-  rejected: { bg: "#3B1010", fg: "#FCA5A5", label: "Rejected" },
+  pending: { bg: colors.warningSoft, fg: colors.warning, label: "Pending" },
+  processed: { bg: colors.infoSoft, fg: colors.info, label: "Processed" },
+  failed: { bg: colors.dangerSoft, fg: colors.danger, label: "Failed" },
+  draft: { bg: colors.cardMuted, fg: colors.textSecondary, label: "Draft" },
+  submitted: { bg: colors.infoSoft, fg: colors.info, label: "Submitted" },
+  processing: { bg: colors.warningSoft, fg: colors.warning, label: "Processing" },
+  paid: { bg: colors.successSoft, fg: colors.success, label: "Paid" },
+  rejected: { bg: colors.dangerSoft, fg: colors.danger, label: "Rejected" },
 };
 
 export function Pill({ status }: PillProps) {
@@ -30,15 +30,17 @@ export function Pill({ status }: PillProps) {
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 100,
+    borderRadius: 999,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
     alignSelf: "flex-start",
     borderWidth: 1,
     borderColor: colors.border,
   },
   text: {
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+    textTransform: "uppercase",
   },
 });

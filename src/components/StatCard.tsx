@@ -19,28 +19,30 @@ export function StatCard({ label, value, hint }: StatCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    flex: 1,
-    backgroundColor: colors.card,
-    borderRadius: 12,
+    width: "48.5%",
+    backgroundColor: colors.cardAlt,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: 14,
-    minHeight: 110,
+    padding: 16,
+    minHeight: 112,
   },
   label: {
     color: colors.textSecondary,
-    fontSize: 12,
-    marginBottom: 8,
+    fontSize: 11,
+    marginBottom: 10,
     textTransform: "uppercase",
+    letterSpacing: 0.6,
+    fontWeight: "700",
   },
   value: {
     color: colors.textPrimary,
-    fontSize: 24,
-    fontWeight: "700",
+    fontSize: 28,
+    fontWeight: "800",
     marginBottom: 6,
   },
   hint: {
-    color: colors.textSecondary,
-    fontSize: 12,
+    color: colors.textMuted,
+    fontSize: 11,
   },
 });

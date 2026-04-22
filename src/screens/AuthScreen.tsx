@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { useAuth } from "@/providers/AuthProvider";
 import { Screen } from "@/components/Screen";
-import { colors } from "@/theme/colors";
+import { colors, radii, spacing } from "@/theme/colors";
 import { env } from "@/services/env";
 
 type AuthMode = "signin" | "signup";
@@ -52,8 +52,10 @@ export function AuthScreen() {
     <Screen>
       <KeyboardAvoidingView behavior={Platform.select({ ios: "padding", default: undefined })} style={styles.fill}>
         <View style={styles.container}>
-          <Text style={styles.brand}>Prooof</Text>
-          <Text style={styles.subtitle}>Save receipts. Track recalls. Claim smarter.</Text>
+          <View style={styles.hero}>
+            <Text style={styles.brand}>Prooof</Text>
+            <Text style={styles.subtitle}>Save receipts. Track recalls. Claim smarter.</Text>
+          </View>
 
           <View style={styles.modeContainer}>
             <Pressable
@@ -126,28 +128,35 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: "center",
-    gap: 16,
+    gap: spacing.lg,
+  },
+  hero: {
+    marginBottom: spacing.sm,
   },
   brand: {
     color: colors.textPrimary,
-    fontSize: 34,
+    fontSize: 36,
     fontWeight: "800",
+    letterSpacing: -0.5,
   },
   subtitle: {
     color: colors.textSecondary,
-    marginBottom: 8,
+    marginTop: spacing.xs,
+    fontSize: 15,
   },
   modeContainer: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
+    backgroundColor: colors.surfaceElevated,
+    borderRadius: radii.lg,
     flexDirection: "row",
     padding: 4,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
   },
   modeButton: {
     flex: 1,
     alignItems: "center",
-    borderRadius: 8,
-    paddingVertical: 10,
+    borderRadius: radii.md,
+    paddingVertical: 11,
   },
   modeButtonActive: {
     backgroundColor: colors.surface,
@@ -160,7 +169,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   formGroup: {
-    gap: 6,
+    gap: spacing.xs,
   },
   label: {
     color: colors.textSecondary,
@@ -171,25 +180,28 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
+    borderColor: colors.borderSoft,
+    borderRadius: radii.lg,
     backgroundColor: colors.surface,
     color: colors.textPrimary,
-    paddingHorizontal: 12,
+    paddingHorizontal: spacing.md,
     paddingVertical: 14,
+    fontSize: 15,
   },
   submitButton: {
-    marginTop: 8,
+    marginTop: spacing.sm,
     backgroundColor: colors.primary,
-    borderRadius: 12,
+    borderRadius: radii.lg,
     paddingVertical: 14,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: colors.primaryStrong,
   },
   submitButtonDisabled: {
     opacity: 0.5,
   },
   submitText: {
-    color: "white",
+    color: colors.background,
     fontSize: 16,
     fontWeight: "700",
   },
@@ -198,12 +210,12 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   demoButton: {
-    borderRadius: 12,
+    borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderSoft,
     paddingVertical: 12,
     alignItems: "center",
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceElevated,
   },
   demoButtonText: {
     color: colors.textPrimary,

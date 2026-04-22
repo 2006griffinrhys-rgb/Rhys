@@ -2,7 +2,7 @@ import { Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native"
 import { Card } from "@/components/Card";
 import { Screen } from "@/components/Screen";
 import { SectionTitle } from "@/components/SectionTitle";
-import { colors } from "@/theme/colors";
+import { colors, spacing } from "@/theme/colors";
 import { useAuth } from "@/providers/AuthProvider";
 import { useAppData } from "@/providers/AppDataProvider";
 import { getEnvSummary } from "@/services/env";
@@ -30,10 +30,7 @@ export function SettingsScreen() {
 
   return (
     <Screen>
-      <SectionTitle
-        title="Settings"
-        subtitle="Account, sync and environment details."
-      />
+      <SectionTitle title="Settings" subtitle="Account, sync and environment details." />
 
       <Card>
         <Text style={styles.emailLabel}>Signed in as</Text>
@@ -42,11 +39,7 @@ export function SettingsScreen() {
 
       <Card>
         <Text style={styles.groupTitle}>Data Sync</Text>
-        <Pressable
-          style={styles.primaryButton}
-          onPress={refresh}
-          disabled={refreshing}
-        >
+        <Pressable style={styles.primaryButton} onPress={refresh} disabled={refreshing}>
           <Text style={styles.primaryButtonText}>
             {refreshing ? "Refreshing..." : "Refresh data"}
           </Text>
@@ -55,21 +48,23 @@ export function SettingsScreen() {
 
       <Card>
         <Text style={styles.groupTitle}>Environment</Text>
-        <View style={styles.envRow}>
-          <Text style={styles.envLabel}>Supabase URL:</Text>
-          <Text style={styles.envValue}>{envSummary.supabaseUrl}</Text>
-        </View>
-        <View style={styles.envRow}>
-          <Text style={styles.envLabel}>Project ID:</Text>
-          <Text style={styles.envValue}>{envSummary.projectId}</Text>
-        </View>
-        <View style={styles.envRow}>
-          <Text style={styles.envLabel}>Using fallback:</Text>
-          <Text style={styles.envValue}>{envSummary.usingFallback ? "Yes" : "No"}</Text>
-        </View>
-        <View style={styles.envRow}>
-          <Text style={styles.envLabel}>Auth mode:</Text>
-          <Text style={styles.envValue}>{isDemoAuth ? "Demo auth" : "Supabase auth"}</Text>
+        <View style={styles.envGrid}>
+          <View style={styles.envRow}>
+            <Text style={styles.envLabel}>Supabase URL</Text>
+            <Text style={styles.envValue}>{envSummary.supabaseUrl}</Text>
+          </View>
+          <View style={styles.envRow}>
+            <Text style={styles.envLabel}>Project ID</Text>
+            <Text style={styles.envValue}>{envSummary.projectId}</Text>
+          </View>
+          <View style={styles.envRow}>
+            <Text style={styles.envLabel}>Using fallback</Text>
+            <Text style={styles.envValue}>{envSummary.usingFallback ? "Yes" : "No"}</Text>
+          </View>
+          <View style={styles.envRow}>
+            <Text style={styles.envLabel}>Auth mode</Text>
+            <Text style={styles.envValue}>{isDemoAuth ? "Demo auth" : "Supabase auth"}</Text>
+          </View>
         </View>
       </Card>
 
@@ -88,67 +83,83 @@ export function SettingsScreen() {
 
 const styles = StyleSheet.create({
   emailLabel: {
-    color: colors.textSecondary,
+    color: colors.textMuted,
     fontSize: 12,
+    letterSpacing: 0.3,
+    textTransform: "uppercase",
   },
   email: {
     color: colors.textPrimary,
     fontSize: 16,
     fontWeight: "700",
-    marginTop: 6,
+    marginTop: spacing.xs,
   },
   groupTitle: {
     color: colors.textPrimary,
     fontWeight: "700",
     fontSize: 16,
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   primaryButton: {
     backgroundColor: colors.primary,
-    borderRadius: 10,
+    borderRadius: 12,
     paddingVertical: 12,
     alignItems: "center",
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 3,
   },
   primaryButtonText: {
-    color: "#00122d",
+    color: colors.background,
     fontWeight: "700",
   },
   ghostButton: {
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 10,
+    borderRadius: 12,
     paddingVertical: 12,
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: spacing.sm,
+    backgroundColor: colors.surface,
   },
   ghostButtonText: {
     color: colors.textPrimary,
     fontWeight: "600",
   },
   signOutButton: {
-    backgroundColor: "#2d1b26",
-    borderRadius: 10,
+    backgroundColor: colors.dangerSoft,
+    borderRadius: 12,
     paddingVertical: 12,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#6f2748",
   },
   signOutButtonText: {
     color: colors.danger,
     fontWeight: "700",
   },
+  envGrid: {
+    gap: spacing.sm,
+  },
   envRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 8,
-    gap: 10,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    borderRadius: 10,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    gap: spacing.xs,
   },
   envLabel: {
-    color: colors.textSecondary,
-    fontSize: 13,
+    color: colors.textMuted,
+    fontSize: 12,
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
   },
   envValue: {
     color: colors.textPrimary,
     fontSize: 13,
-    flexShrink: 1,
-    textAlign: "right",
+    lineHeight: 18,
   },
 });

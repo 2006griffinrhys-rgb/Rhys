@@ -5,7 +5,7 @@ import { Screen } from "@/components/Screen";
 import { SectionTitle } from "@/components/SectionTitle";
 import { StatCard } from "@/components/StatCard";
 import { useAppData } from "@/providers/AppDataProvider";
-import { colors } from "@/theme/colors";
+import { colors, spacing } from "@/theme/colors";
 import { formatCents, formatDate } from "@/utils/format";
 
 export function DashboardScreen() {
@@ -29,17 +29,17 @@ export function DashboardScreen() {
         </Card>
       ) : null}
 
+      <Card>
+        <Text style={styles.spendingLabel}>Total tracked spend</Text>
+        <Text style={styles.statHeadline}>{formatCents(stats.totalSpendCents)}</Text>
+      </Card>
+
       <View style={styles.statsGrid}>
         <StatCard label="Total receipts" value={stats.receiptCount.toString()} />
         <StatCard label="Products tracked" value={stats.productsTracked.toString()} />
         <StatCard label="Active recalls" value={stats.activeRecalls.toString()} />
         <StatCard label="Claims in progress" value={stats.claimsInProgress.toString()} />
       </View>
-
-      <Card>
-        <Text style={styles.statHeadline}>{formatCents(stats.totalSpendCents)}</Text>
-        <Text style={styles.statHint}>Total receipt spend</Text>
-      </Card>
 
       <SectionTitle title="Latest receipt" subtitle="Recently scanned or uploaded bill" />
       {latestReceipt ? (
@@ -82,66 +82,76 @@ export function DashboardScreen() {
 
 const styles = StyleSheet.create({
   headerRow: {
-    gap: 4,
+    gap: spacing.xs,
   },
   title: {
     color: colors.textPrimary,
-    fontSize: 26,
-    fontWeight: "700",
+    fontSize: 30,
+    fontWeight: "800",
+    letterSpacing: -0.5,
   },
   subtitle: {
     color: colors.textSecondary,
-    fontSize: 14,
+    fontSize: 15,
+    lineHeight: 22,
   },
   demoTitle: {
-    color: colors.warning,
-    fontSize: 14,
+    color: colors.textPrimary,
+    fontSize: 13,
     fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
   },
   demoText: {
+    color: colors.warning,
+    fontSize: 14,
+    marginTop: spacing.xs,
+    lineHeight: 20,
+  },
+  spendingLabel: {
     color: colors.textSecondary,
     fontSize: 13,
-    marginTop: 4,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    fontWeight: "700",
   },
   statsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 10,
+    gap: spacing.sm,
   },
   statHeadline: {
-    color: colors.textPrimary,
+    color: colors.accent,
     fontWeight: "800",
-    fontSize: 26,
-  },
-  statHint: {
-    color: colors.textSecondary,
-    marginTop: 4,
+    fontSize: 34,
+    marginTop: spacing.xs,
+    letterSpacing: -0.6,
   },
   itemTitle: {
     color: colors.textPrimary,
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "700",
   },
   itemSub: {
     color: colors.textSecondary,
-    fontSize: 14,
-    marginTop: 2,
+    fontSize: 13,
+    marginTop: spacing.xs,
   },
   itemMeta: {
     color: colors.textSecondary,
     fontSize: 12,
-    marginTop: 4,
+    marginTop: spacing.xs,
   },
   reason: {
     color: colors.textPrimary,
     fontSize: 14,
-    lineHeight: 20,
-    marginTop: 10,
+    lineHeight: 22,
+    marginTop: spacing.sm,
   },
   amount: {
-    color: colors.primary,
-    fontSize: 22,
+    color: colors.accent,
+    fontSize: 20,
     fontWeight: "700",
-    marginTop: 10,
+    marginTop: spacing.sm,
   },
 });

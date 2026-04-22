@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { colors } from "@/theme/colors";
+import { colors, radii, spacing } from "@/theme/colors";
 
 interface EmptyStateProps {
   title: string;
@@ -27,34 +27,34 @@ export function EmptyState({ title, subtitle, description, body, actionLabel, on
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
-    borderRadius: 16,
+    padding: spacing.xl,
+    borderRadius: radii.xl,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.card,
     alignItems: "center",
   },
   title: {
     color: colors.textPrimary,
     fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 8,
+    fontWeight: "800",
+    marginBottom: spacing.sm,
   },
   subtitle: {
-    color: colors.textSecondary,
+    color: colors.textMuted,
     fontSize: 14,
     textAlign: "center",
     lineHeight: 20,
   },
   button: {
-    marginTop: 16,
-    backgroundColor: colors.accent,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 10,
+    marginTop: spacing.lg,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.md,
   },
   buttonLabel: {
-    color: colors.textPrimary,
+    color: colors.background,
     fontWeight: "700",
   },
 });

@@ -24,13 +24,19 @@ export function MainTabs() {
       screenOptions={{
         headerStyle: { backgroundColor: colors.background },
         headerTintColor: colors.textPrimary,
+        headerTitleStyle: { fontWeight: "700" },
         headerShadowVisible: false,
         tabBarStyle: {
-          backgroundColor: colors.surface,
+          backgroundColor: colors.surfaceElevated,
           borderTopColor: colors.border,
+          borderTopWidth: 1,
+          height: 72,
+          paddingTop: 6,
+          paddingBottom: 10,
         },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
         tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textSecondary,
+        tabBarInactiveTintColor: colors.textMuted,
       }}
     >
       <Tab.Screen name="Dashboard" component={DashboardScreen} />
