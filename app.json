@@ -12,25 +12,38 @@
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "scheme": "prooof",
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "buildNumber": "1",
       "supportsTablet": true,
-      "bundleIdentifier": "com.prooof.native"
+      "bundleIdentifier": "com.prooof.native",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "versionCode": 1,
-      "package": "com.prooof.native"
+      "package": "com.prooof.native",
+      "permissions": [
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.WAKE_LOCK"
+      ]
     },
     "web": {
       "bundler": "metro",
       "output": "single"
     },
-    "plugins": ["expo-background-fetch", "expo-task-manager"],
+    "plugins": [
+      "expo-background-fetch",
+      "expo-task-manager"
+    ],
     "extra": {
       "eas": {
-        "projectId": "00000000-0000-0000-0000-000000000000"
+        "projectId": "1768809d-de2e-450c-8fec-c53f4f928fe6"
       }
-    }
+    },
+    "owner": "rhysgriffin47"
   }
 }

@@ -27,7 +27,7 @@ const navTheme = {
 };
 
 export function AppNavigator() {
-  const { session, loading } = useAuth();
+  const { session, user, loading } = useAuth();
 
   if (loading) {
     return <LoadingScreen />;
@@ -36,7 +36,7 @@ export function AppNavigator() {
   return (
     <NavigationContainer theme={navTheme}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {!session ? (
+        {!session && !user ? (
           <Stack.Screen name="SignIn" component={AuthScreen} />
         ) : (
           <Stack.Screen name="App" component={MainTabs} />
