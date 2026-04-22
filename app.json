@@ -3,20 +3,34 @@
     "name": "Prooof",
     "slug": "prooof-native",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/00000000-0000-0000-0000-000000000000"
+    },
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
+    "scheme": "prooof",
     "assetBundlePatterns": ["**/*"],
     "ios": {
+      "buildNumber": "1",
       "supportsTablet": true,
       "bundleIdentifier": "com.prooof.native"
     },
     "android": {
+      "versionCode": 1,
       "package": "com.prooof.native"
     },
     "web": {
       "bundler": "metro",
       "output": "single"
     },
-    "plugins": []
+    "plugins": [],
+    "extra": {
+      "eas": {
+        "projectId": "00000000-0000-0000-0000-000000000000"
+      }
+    }
   }
 }

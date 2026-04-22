@@ -10,7 +10,12 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "eslint . --ext .ts,.tsx",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "eas:build:ios": "eas build --platform ios --profile production",
+    "eas:build:android": "eas build --platform android --profile production",
+    "eas:build:preview": "eas build --platform all --profile preview",
+    "eas:submit:ios": "eas submit --platform ios --profile production",
+    "eas:submit:android": "eas submit --platform android --profile production"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.2.0",
@@ -35,6 +40,7 @@
     "@typescript-eslint/eslint-plugin": "^8.44.1",
     "@typescript-eslint/parser": "^8.44.1",
     "typescript-eslint": "^8.44.1",
+    "eas-cli": "^16.23.1",
     "eslint": "^9.37.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^5.2.0",

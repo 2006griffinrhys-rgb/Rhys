@@ -65,6 +65,44 @@ Native mobile companion for the Prooof platform, built with Expo + React Native 
   npm run android
   ```
 
+## Build store-ready binaries (EAS)
+
+1. Install and authenticate Expo CLI:
+
+   ```bash
+   npm install -g eas-cli
+   eas login
+   ```
+
+2. Configure project in your Expo account:
+
+   ```bash
+   eas build:configure
+   ```
+
+3. Build Android AAB (Play Console):
+
+   ```bash
+   npm run build:android:production
+   ```
+
+4. Build iOS IPA (TestFlight/App Store Connect):
+
+   ```bash
+   npm run build:ios:production
+   ```
+
+5. Optional: submit directly after build:
+
+   ```bash
+   npm run submit:android
+   npm run submit:ios
+   ```
+
+Profiles are defined in `eas.json`:
+- `preview` for internal testing
+- `production` for app store submission
+
 ## Notes
 
 - This app mirrors the core Prooof entities from the Loveable project (`products`, `bills`, claims/recall flows).
