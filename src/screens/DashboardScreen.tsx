@@ -199,6 +199,20 @@ const BILL_KEYWORDS = [
   "tv licence",
 ];
 
+function formatMerchantBubbleLabel(merchant: string): string {
+  return merchant
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .map((word) => {
+      if (word.length <= 2) {
+        return word.toUpperCase();
+      }
+      return `${word.charAt(0).toUpperCase()}${word.slice(1)}`;
+    })
+    .join(" ");
+}
+
 function classifyOpportunityCategory(input: { merchant: string; category?: string }): {
   category: ClaimCategory | null;
   tone: ClaimCategoryTone | null;
@@ -469,6 +483,16 @@ export function DashboardScreen() {
     await Linking.openURL(activeHouseholdTip.linkUrl);
   };
 
+  const handleNextTip = () => {
+    setActiveHouseholdTipIndex((current) => (current + 1) % HOUSEHOLD_TIPS.length);
+  };
+
+  const handlePreviousTip = () => {
+    setActiveHouseholdTipIndex((current) =>
+      current === 0 ? HOUSEHOLD_TIPS.length - 1 : current - 1,
+    );
+  };
+
   const handleStartClaim = (item: ClaimOpportunity) => {
     if (claimLimitReached && claimTier !== "unlimited") {
       Alert.alert(
@@ -624,17 +648,53 @@ export function DashboardScreen() {
           </View>
 
           <View style={styles.taxReliefCard}>
-            <View style={styles.taxReliefIcon}>
-              <Text style={styles.taxReliefIconText}>i</Text>
-            </View>
-            <View style={styles.taxReliefBody}>
-              <Text style={styles.taxReliefTitle}>{activeHouseholdTip.title}</Text>
-              <Text style={styles.taxReliefMeta}>
-                {activeHouseholdTip.detail}
-              </Text>
-              <Pressable onPress={() => void openTipLink()} style={styles.tipLinkButton}>
-                <Text style={styles.tipLinkText}>Learn more</Text>
+            <View style={styles.taxReliefMainRow}>
+              <View style={styles.taxReliefIcon}>
+                <Text style={styles.taxReliefIconText}>i</Text>
+              </View>
+              <View style={styles.taxReliefBody}>
+                <Text style={styles.taxReliefTitle}>{activeHouseholdTip.title}</Text>
+                <Text style={styles.taxReliefMeta}>
+                  {activeHouseholdTip.detail}
+                </Text>
+                <View style={styles.tipActionRow}>
+                  <Pressable onPress={() => void openTipLink()} style={styles.tipLinkButton}>
+                    <Text style={styles.tipLinkText}>{activeHouseholdTip.linkLabel}</Text>
+                  </Pressable>
+                  <Text style={styles.tipHighlightText}>{activeHouseholdTip.highlight}</Text>
+                </View>
+              </View>
+              <Pressable
+                style={styles.tipDismissButton}
+                onPress={handleNextTip}
+                accessibilityLabel="Dismiss this tip"
+              >
+                <Text style={styles.tipDismissText}>×</Text>
               </Pressable>
+            </View>
+            <View style={styles.tipFooterRow}>
+              <View style={styles.tipDotsRow}>
+                {HOUSEHOLD_TIPS.map((tip, index) => (
+                  <Pressable
+                    key={tip.title}
+                    onPress={() => setActiveHouseholdTipIndex(index)}
+                    accessibilityLabel={`Show tip ${index + 1}`}
+                  >
+                    <View style={[styles.tipDot, index === activeHouseholdTipIndex && styles.tipDotActive]} />
+                  </Pressable>
+                ))}
+              </View>
+              <View style={styles.tipPager}>
+                <Text style={styles.tipPagerText}>
+                  TIP {activeHouseholdTipIndex + 1} / {HOUSEHOLD_TIPS.length}
+                </Text>
+                <Pressable onPress={handlePreviousTip} accessibilityLabel="Previous tip">
+                  <Text style={styles.tipPagerArrow}>‹</Text>
+                </Pressable>
+                <Pressable onPress={handleNextTip} accessibilityLabel="Next tip">
+                  <Text style={styles.tipPagerArrow}>›</Text>
+                </Pressable>
+              </View>
             </View>
           </View>
 
@@ -691,7 +751,9 @@ export function DashboardScreen() {
                     </View>
                     <View style={styles.metaBubbleRow}>
                       <View style={styles.companyBubble}>
-                        <Text style={styles.companyBubbleText}>{item.merchant.toLowerCase()}</Text>
+                        <Text style={styles.companyBubbleText}>
+                          {formatMerchantBubbleLabel(item.merchant)}
+                        </Text>
                       </View>
                       <View style={[styles.metaBubble, { backgroundColor: tone.bubbleBackground }]}>
                         <Text style={[styles.metaBubbleText, { color: tone.bubbleText }]}>
@@ -1069,7 +1131,6 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 11,
     fontWeight: "700",
-    textTransform: "lowercase",
   },
   metaBubbleText: {
     fontSize: 11,
@@ -1156,10 +1217,13 @@ const styles = StyleSheet.create({
   taxReliefCard: {
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: colors.authBorderStrong,
-    backgroundColor: colors.authSurface,
+    borderColor: "#C8CFDA",
+    backgroundColor: "#F4F5F7",
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
+    gap: spacing.sm,
+  },
+  taxReliefMainRow: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: spacing.sm,
@@ -1168,13 +1232,13 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: radii.pill,
-    backgroundColor: "#E8ECF4",
+    backgroundColor: "#E4E7ED",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 2,
+    marginTop: 1,
   },
   taxReliefIconText: {
-    color: "#475063",
+    color: "#667083",
     fontWeight: "700",
     fontSize: 12,
   },
@@ -1192,15 +1256,73 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
   },
+  tipActionRow: {
+    marginTop: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
   tipLinkButton: {
-    marginTop: spacing.xs,
     alignSelf: "flex-start",
     paddingVertical: 2,
   },
   tipLinkText: {
-    color: colors.authBrand,
+    color: "#EC3750",
     fontSize: 12,
     fontWeight: "700",
     textDecorationLine: "underline",
+  },
+  tipHighlightText: {
+    color: "#16A34A",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  tipDismissButton: {
+    width: 20,
+    alignItems: "flex-end",
+    paddingTop: 1,
+  },
+  tipDismissText: {
+    color: "#6A7383",
+    fontSize: 18,
+    lineHeight: 18,
+  },
+  tipFooterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.md,
+  },
+  tipDotsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  tipDot: {
+    width: 6,
+    height: 6,
+    borderRadius: radii.pill,
+    backgroundColor: "#BCC3CF",
+  },
+  tipDotActive: {
+    width: 20,
+    backgroundColor: "#0E1A31",
+  },
+  tipPager: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  tipPagerText: {
+    color: "#727B8C",
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.4,
+  },
+  tipPagerArrow: {
+    color: "#6A7383",
+    fontSize: 16,
+    fontWeight: "700",
   },
 });
