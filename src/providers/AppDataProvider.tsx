@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type {
   BillingInterval,
   BillingTier,
@@ -194,6 +194,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [inboxScanProviders, setInboxScanProvidersState] = useState<EmailProviderId[]>(DEFAULT_INBOX_PROVIDERS);
   const [inboxScanLastCount, setInboxScanLastCount] = useState<number | null>(null);
   const [lastInboxScan, setLastInboxScan] = useState<InboxScanResult | null>(null);
+  const autoScanTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const autoScanInFlightRef = useRef(false);
 
   const loadData = useCallback(async () => {
     setError(null);
@@ -325,6 +327,44 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       setScanningInbox(false);
     }
   }, [inboxScanProviders, loadData, user?.id]);
+
+  const runInboxScanSilently = useCallback(async () => {
+    if (!user?.id || autoScanInFlightRef.current) return;
+    autoScanInFlightRef.current = true;
+    try {
+      const result = await runMultiProviderInboxScan(user.id, inboxScanProviders);
+      setInboxScanLastCount(result.scannedEmails);
+      setLastInboxScan(result);
+      await loadData();
+    } catch {
+      // Keep background scanning resilient and avoid surfacing noisy errors to users.
+    } finally {
+      autoScanInFlightRef.current = false;
+    }
+  }, [inboxScanProviders, loadData, user?.id]);
+
+  useEffect(() => {
+    if (autoScanTimerRef.current) {
+      clearInterval(autoScanTimerRef.current);
+      autoScanTimerRef.current = null;
+    }
+
+    if (!user?.id || !env.autoInboxScanEnabled) {
+      return;
+    }
+
+    void runInboxScanSilently();
+    autoScanTimerRef.current = setInterval(() => {
+      void runInboxScanSilently();
+    }, env.autoInboxScanIntervalMs);
+
+    return () => {
+      if (autoScanTimerRef.current) {
+        clearInterval(autoScanTimerRef.current);
+        autoScanTimerRef.current = null;
+      }
+    };
+  }, [inboxScanProviders, runInboxScanSilently, user?.id]);
 
   const claimsUsed = useMemo(() => {
     const currentMonth = toBillingCycleMonth(new Date());

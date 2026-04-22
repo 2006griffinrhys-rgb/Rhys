@@ -66,7 +66,7 @@ export function DashboardScreen() {
 
       <Card>
         <Text style={styles.planLabel}>Inbox scanning</Text>
-        <Text style={styles.planMeta}>Scans every available email in linked inboxes (no cap).</Text>
+        <Text style={styles.planMeta}>Always-on scan across linked inboxes (no cap).</Text>
         <Text style={styles.scanMeta}>Coverage: {providerCoverageLabel}</Text>
         {lastInboxScan ? (
           <Text style={styles.scanMeta}>
@@ -74,7 +74,7 @@ export function DashboardScreen() {
           </Text>
         ) : null}
         <Text onPress={() => void scanEntireInbox()} style={[styles.scanCta, scanningInbox && styles.scanCtaDisabled]}>
-          {scanningInbox ? "Scanning inbox..." : "Run full inbox scan now"}
+          {scanningInbox ? "Background scanning..." : "Trigger extra scan now"}
         </Text>
       </Card>
 

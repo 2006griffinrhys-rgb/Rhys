@@ -42,7 +42,6 @@ export function SettingsScreen() {
     scheduledDowngradeAt,
     preferredCurrency,
     setPreferredCurrency,
-    runInboxScan,
     inboxScanProviders,
     setInboxScanProviders,
     providerCoverageLabel,
@@ -62,19 +61,6 @@ export function SettingsScreen() {
     const supported = await Linking.canOpenURL(SUPPORT_URL);
     if (supported) {
       await Linking.openURL(SUPPORT_URL);
-    }
-  };
-
-  const handleScanInbox = async () => {
-    try {
-      await runInboxScan();
-      Alert.alert(
-        "Inbox scan started",
-        "Scanning all emails across selected providers (no cap).",
-      );
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Could not start inbox scan.";
-      Alert.alert("Scan failed", message);
     }
   };
 
@@ -214,11 +200,11 @@ export function SettingsScreen() {
             {refreshing ? "Refreshing..." : "Refresh data"}
           </Text>
         </Pressable>
-        <Pressable style={styles.ghostButton} onPress={handleScanInbox} disabled={scanningInbox}>
-          <Text style={styles.ghostButtonText}>
-            {scanningInbox ? "Scanning inbox..." : "Scan entire inbox (no cap)"}
-          </Text>
-        </Pressable>
+        <Text style={styles.scanMeta}>
+          {scanningInbox
+            ? "Background scanner is processing now."
+            : "Background scanner is active and continuously checks selected providers."}
+        </Text>
         {inboxScanLastCount !== null ? (
           <Text style={styles.scanMeta}>
             Last scan: {inboxScanLastCount.toLocaleString("en-GB")} emails processed
