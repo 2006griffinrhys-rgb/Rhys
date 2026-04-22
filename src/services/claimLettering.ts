@@ -10,6 +10,7 @@ type ProductClaimRequest = {
   currency: string;
   purchaseDate: string;
   userReason: string;
+  signerName: string;
   requestedOutcome: ProductClaimOutcome;
 };
 
@@ -20,6 +21,7 @@ type BillClaimRequest = {
   amountCents: number;
   currency: string;
   userReason: string;
+  signerName: string;
   requestedOutcome: BillClaimOutcome;
 };
 
@@ -115,7 +117,7 @@ function buildProductLetter(input: ProductClaimRequest): ClaimLetterResult {
     "Please confirm next steps and timeline for resolution.",
     "",
     "Kind regards,",
-    "Prooof customer",
+    input.signerName,
   ].join("\n");
 
   return {
@@ -155,7 +157,7 @@ function buildBillLetter(input: BillClaimRequest): ClaimLetterResult {
     "Please confirm next steps and timeline for resolution.",
     "",
     "Kind regards,",
-    "Prooof customer",
+    input.signerName,
   ].join("\n");
 
   return {

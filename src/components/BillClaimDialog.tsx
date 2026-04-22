@@ -23,10 +23,12 @@ type BillClaimDialogProps = {
   visible: boolean;
   opportunity: BillDialogOpportunity | null;
   submitting?: boolean;
+  defaultSignOffName?: string;
   onClose: () => void;
   onSubmit: (payload: {
     reason: string;
     outcome: BillClaimOutcome;
+    signOffName: string;
   }) => Promise<void> | void;
 };
 
@@ -34,28 +36,35 @@ const OUTCOMES: { id: BillClaimOutcome; label: string }[] = [
   { id: "waive-charges", label: "Waive charges" },
   { id: "exit-contract", label: "Exit contract" },
   { id: "itemised-breakdown", label: "Itemised breakdown" },
-  { id: "not-sure", label: "Not sure — recommend the strongest option" },
+  { id: "not-sure", label: "Not sure" },
 ];
 
 export function BillClaimDialog({
   visible,
   opportunity,
   submitting = false,
+  defaultSignOffName = "",
   onClose,
   onSubmit,
 }: BillClaimDialogProps) {
   const [reason, setReason] = useState("");
+  const [signOffValue, setSignOffValue] = useState(defaultSignOffName);
   const [selectedOutcome, setSelectedOutcome] =
     useState<BillClaimOutcome>("not-sure");
 
   const canSubmit = useMemo(
-    () => reason.trim().length >= 8 && !submitting && Boolean(opportunity),
-    [opportunity, reason, submitting],
+    () =>
+      reason.trim().length >= 8 &&
+      signOffValue.trim().length >= 2 &&
+      !submitting &&
+      Boolean(opportunity),
+    [opportunity, reason, signOffValue, submitting],
   );
 
   const handleClose = () => {
     if (submitting) return;
     setReason("");
+    setSignOffValue(defaultSignOffName);
     setSelectedOutcome("not-sure");
     onClose();
   };
@@ -65,8 +74,10 @@ export function BillClaimDialog({
     await onSubmit({
       reason: reason.trim(),
       outcome: selectedOutcome,
+      signOffName: signOffValue.trim(),
     });
     setReason("");
+    setSignOffValue(defaultSignOffName);
     setSelectedOutcome("not-sure");
   };
 
@@ -79,9 +90,16 @@ export function BillClaimDialog({
     >
       <View style={styles.backdrop}>
         <View style={styles.dialog}>
-          <Text style={styles.title}>Make a bill claim</Text>
+          <View style={styles.headerRow}>
+            <Text style={styles.title}>Start a claim</Text>
+            <Pressable onPress={handleClose} style={styles.closeIconButton}>
+              <Text style={styles.closeIconText}>×</Text>
+            </Pressable>
+          </View>
           <Text style={styles.subtitle}>
-            We will generate and send a billing dispute email to the supplier.
+            {opportunity
+              ? `${opportunity.title} from ${opportunity.supplier}. We'll draft the right claim email for this charge.`
+              : "We'll draft the right bill-claim email for this charge."}
           </Text>
 
           {opportunity ? (
@@ -119,12 +137,15 @@ export function BillClaimDialog({
               );
             })}
           </View>
+          <Text style={styles.helperText}>
+            We'll ask for the strongest remedy UK law allows for this billing dispute.
+          </Text>
 
-          <Text style={styles.label}>Why are you disputing this bill?</Text>
+          <Text style={styles.label}>What's the issue?</Text>
           <TextInput
             value={reason}
             onChangeText={setReason}
-            placeholder="Describe overcharge, poor service, contract issue, etc."
+            placeholder="e.g. Early termination charges were added incorrectly despite written cancellation."
             placeholderTextColor={colors.textMuted}
             multiline
             textAlignVertical="top"
@@ -132,20 +153,29 @@ export function BillClaimDialog({
             editable={!submitting}
           />
 
+          <Text style={styles.label}>Your name (for the sign-off)</Text>
+          <TextInput
+            value={signOffValue}
+            onChangeText={setSignOffValue}
+            placeholder="Full name"
+            placeholderTextColor={colors.textMuted}
+            style={styles.nameInput}
+            editable={!submitting}
+          />
+
           <View style={styles.actions}>
-            <Pressable
-              onPress={handleClose}
-              style={[styles.secondaryButton, submitting && styles.buttonDisabled]}
-            >
-              <Text style={styles.secondaryButtonText}>Cancel</Text>
-            </Pressable>
             <Pressable
               onPress={() => void handleSubmit()}
               style={[styles.primaryButton, !canSubmit && styles.buttonDisabled]}
             >
               <Text style={styles.primaryButtonText}>
-                {submitting ? "Sending..." : "Send claim email"}
+                {submitting ? "Generating..." : "Generate claim email"}
               </Text>
+            </Pressable>
+          </View>
+          <View style={styles.closeRow}>
+            <Pressable onPress={handleClose} style={styles.closeLinkButton}>
+              <Text style={styles.closeLinkText}>Close</Text>
             </Pressable>
           </View>
         </View>
@@ -164,23 +194,41 @@ const styles = StyleSheet.create({
   },
   dialog: {
     width: "100%",
-    maxWidth: 560,
+    maxWidth: 700,
     borderRadius: radii.xl,
     backgroundColor: colors.authSurface,
     borderWidth: 1,
     borderColor: colors.authBorder,
-    padding: spacing.lg,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.lg,
     gap: spacing.sm,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   title: {
     color: colors.textPrimary,
-    fontSize: 21,
+    fontSize: 30,
     fontWeight: "800",
+    letterSpacing: -0.4,
   },
   subtitle: {
     color: colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 16,
+    lineHeight: 23,
+    marginBottom: spacing.sm,
+  },
+  closeIconButton: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  closeIconText: {
+    color: colors.textMuted,
+    fontSize: 24,
+    lineHeight: 24,
+    fontWeight: "500",
   },
   summaryCard: {
     borderWidth: 1,
@@ -203,31 +251,40 @@ const styles = StyleSheet.create({
   },
   label: {
     color: colors.textPrimary,
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: "700",
     marginTop: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  helperText: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
   },
   outcomeGrid: {
     flexDirection: "row",
-    flexWrap: "wrap",
+    flexWrap: "nowrap",
     gap: spacing.xs,
   },
   outcomeChip: {
+    flex: 1,
     borderWidth: 1,
     borderColor: colors.authBorder,
-    borderRadius: radii.pill,
-    backgroundColor: colors.authSurfaceSoft,
+    borderRadius: 14,
+    backgroundColor: colors.authSurface,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 7,
+    paddingVertical: 10,
+    alignItems: "center",
   },
   outcomeChipSelected: {
     borderColor: colors.authBrand,
-    backgroundColor: "#FFE9EC",
+    backgroundColor: "#FFEFF1",
   },
   outcomeChipText: {
     color: colors.textSecondary,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "700",
+    textAlign: "center",
   },
   outcomeChipTextSelected: {
     color: colors.authBrand,
@@ -236,45 +293,57 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.authBorderStrong,
     borderRadius: radii.md,
-    backgroundColor: colors.authBackground,
-    minHeight: 108,
-    paddingHorizontal: spacing.sm,
+    backgroundColor: colors.authSurface,
+    minHeight: 120,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    color: colors.textPrimary,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  nameInput: {
+    borderWidth: 1,
+    borderColor: colors.authBorderStrong,
+    borderRadius: radii.md,
+    backgroundColor: colors.authSurface,
+    minHeight: 44,
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     color: colors.textPrimary,
     fontSize: 14,
     lineHeight: 20,
   },
   actions: {
-    marginTop: spacing.sm,
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: spacing.xs,
+    marginTop: spacing.md,
   },
   primaryButton: {
     backgroundColor: colors.authBrand,
     borderColor: colors.authBrand,
     borderWidth: 1,
     borderRadius: radii.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    minHeight: 44,
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
   },
   primaryButtonText: {
     color: "#FFFFFF",
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: "700",
   },
-  secondaryButton: {
-    borderWidth: 1,
-    borderColor: colors.authBorderStrong,
-    borderRadius: radii.md,
-    backgroundColor: colors.authSurface,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+  closeRow: {
+    marginTop: spacing.xs,
+    flexDirection: "row",
+    justifyContent: "flex-end",
   },
-  secondaryButtonText: {
+  closeLinkButton: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  closeLinkText: {
     color: colors.textPrimary,
-    fontSize: 13,
-    fontWeight: "700",
+    fontSize: 14,
+    fontWeight: "600",
   },
   buttonDisabled: {
     opacity: 0.55,

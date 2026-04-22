@@ -3,6 +3,7 @@ import { Alert, Pressable, StyleSheet, Text, useWindowDimensions, View } from "r
 import { BillClaimDialog } from "@/components/BillClaimDialog";
 import { ProductClaimDialog } from "@/components/ProductClaimDialog";
 import { Screen } from "@/components/Screen";
+import { useAuth } from "@/providers/AuthProvider";
 import { useAppData } from "@/providers/AppDataProvider";
 import { colors, radii, spacing } from "@/theme/colors";
 import type { BillClaimOutcome, ProductClaimOutcome } from "@/types/domain";
@@ -161,6 +162,7 @@ function getToneStyles(tone: ClaimCategoryTone) {
 }
 
 export function DashboardScreen() {
+  const { user } = useAuth();
   const {
     receipts,
     refresh,
@@ -246,6 +248,7 @@ export function DashboardScreen() {
   const handleSubmitProductClaim = async (payload: {
     reason: string;
     outcome: ProductClaimOutcome;
+    signOffName: string;
   }) => {
     if (!activeProductClaim) return;
     try {
@@ -257,6 +260,7 @@ export function DashboardScreen() {
         currency: activeProductClaim.currency,
         purchaseDate: activeProductClaim.purchaseDate,
         reason: payload.reason,
+        signOffName: payload.signOffName,
         requestedOutcome: payload.outcome,
       });
       if (claim.emailDeliveryStatus === "failed") {
@@ -279,6 +283,7 @@ export function DashboardScreen() {
   const handleSubmitBillClaim = async (payload: {
     reason: string;
     outcome: BillClaimOutcome;
+    signOffName: string;
   }) => {
     if (!activeBillClaim) return;
     try {
@@ -289,6 +294,7 @@ export function DashboardScreen() {
         amountCents: activeBillClaim.amountCents,
         currency: activeBillClaim.currency,
         reason: payload.reason,
+        signOffName: payload.signOffName,
         requestedOutcome: payload.outcome,
       });
       if (claim.emailDeliveryStatus === "failed") {
@@ -462,6 +468,7 @@ export function DashboardScreen() {
       <ProductClaimDialog
         visible={activeProductClaim !== null}
         opportunity={activeProductClaim}
+        defaultSignOffName={user?.email ?? ""}
         submitting={submittingClaim}
         onClose={() => setActiveProductClaim(null)}
         onSubmit={handleSubmitProductClaim}
@@ -479,6 +486,7 @@ export function DashboardScreen() {
               }
             : null
         }
+        defaultSignOffName={user?.email ?? ""}
         submitting={submittingClaim}
         onClose={() => setActiveBillClaim(null)}
         onSubmit={handleSubmitBillClaim}

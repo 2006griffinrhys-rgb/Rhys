@@ -111,6 +111,7 @@ type AppDataContextValue = AppDataState & {
     currency: string;
     purchaseDate: string;
     reason: string;
+    signOffName: string;
     requestedOutcome: ProductClaimOutcome;
   }) => Promise<Claim>;
   submitBillClaimWithEmail: (input: {
@@ -119,6 +120,7 @@ type AppDataContextValue = AppDataState & {
     amountCents: number;
     currency: string;
     reason: string;
+    signOffName: string;
     requestedOutcome: BillClaimOutcome;
   }) => Promise<Claim>;
 };
@@ -419,6 +421,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       currency: string;
       purchaseDate: string;
       reason: string;
+      signOffName: string;
       requestedOutcome: ProductClaimOutcome;
     }) => {
       if (!user?.id) {
@@ -432,6 +435,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         currency: input.currency,
         purchaseDate: input.purchaseDate,
         userReason: input.reason,
+        signerName: input.signOffName,
         requestedOutcome: input.requestedOutcome,
       });
       const claim: Claim = {
@@ -471,6 +475,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       amountCents: number;
       currency: string;
       reason: string;
+      signOffName: string;
       requestedOutcome: BillClaimOutcome;
     }) => {
       if (!user?.id) {
@@ -483,6 +488,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         amountCents: input.amountCents,
         currency: input.currency,
         userReason: input.reason,
+        signerName: input.signOffName,
         requestedOutcome: input.requestedOutcome,
       });
       const claim: Claim = {
