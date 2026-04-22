@@ -83,6 +83,11 @@ type AppDataContextValue = AppDataState & {
   }>;
   scheduledDowngradeAt: string | null;
   createClaimForRecall: (recall: Recall) => Promise<void>;
+  createManualClaimDraft: (input: {
+    productName: string;
+    estimatedPayoutCents: number;
+    estimatedPayoutCurrency: string;
+  }) => Promise<void>;
 };
 
 const EMPTY_STATS: DashboardStats = {
@@ -317,6 +322,46 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     [state.claims, user?.id, userPlan],
   );
 
+  const createManualClaimDraft = useCallback(
+    async (input: {
+      productName: string;
+      estimatedPayoutCents: number;
+      estimatedPayoutCurrency: string;
+    }) => {
+      const planConfig = PLAN_CONFIG[userPlan];
+      const currentMonth = toBillingCycleMonth(new Date());
+      const claimsUsedThisMonth = state.claims.filter(
+        (claim) => toBillingCycleMonth(claim.createdAt) === currentMonth,
+      ).length;
+      if (
+        planConfig.claimLimitPerMonth !== null &&
+        claimsUsedThisMonth >= planConfig.claimLimitPerMonth
+      ) {
+        throw new Error(
+          `Monthly claim limit reached for ${userPlan} plan. Upgrade your plan to file more claims.`,
+        );
+      }
+      const draftClaim: Claim = {
+        id: `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        recallId: `manual-${Date.now()}`,
+        productName: input.productName,
+        status: "draft",
+        createdAt: new Date().toISOString(),
+        estimatedPayoutCents: Math.max(0, Math.round(input.estimatedPayoutCents)),
+        estimatedPayoutCurrency: input.estimatedPayoutCurrency,
+      };
+      setState((current) => ({
+        ...current,
+        claims: [draftClaim, ...current.claims],
+        stats: {
+          ...current.stats,
+          claimsInProgress: current.stats.claimsInProgress + 1,
+        },
+      }));
+    },
+    [state.claims, userPlan],
+  );
+
   const runInboxScan = useCallback(async (providers?: EmailProviderId[]) => {
     if (!user?.id) return;
 
@@ -536,6 +581,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       downgradeToFreePlan,
       scheduledDowngradeAt,
       createClaimForRecall: createClaimForRecallAction,
+      createManualClaimDraft,
     }),
     [
       state,
@@ -568,6 +614,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       downgradeToFreePlan,
       scheduledDowngradeAt,
       createClaimForRecallAction,
+      createManualClaimDraft,
     ],
   );
 
