@@ -8,6 +8,12 @@ export type ClaimKind = "product" | "bill";
 export type ProductClaimOutcome = "refund" | "replacement-exchange" | "repair" | "not-sure";
 export type BillClaimOutcome = "waive-charges" | "exit-contract" | "itemised-breakdown" | "not-sure";
 export type ClaimOutcome = ProductClaimOutcome | BillClaimOutcome;
+export type ClaimResponseStatus =
+  | "waiting"
+  | "received"
+  | "escalated"
+  | "resolved"
+  | "awaiting-customer";
 export type UserPlan = BillingTier;
 export type PlanType = BillingTier;
 export type EmailProviderId =
@@ -72,6 +78,27 @@ export type Claim = {
   supplierEmail?: string;
   generatedLetterPreview?: string;
   emailDeliveryStatus?: "queued" | "sent" | "failed";
+  followUpEnabled?: boolean;
+  followUpIntervalDays?: number;
+  followUpCount?: number;
+  followUpsSent?: number;
+  lastFollowUpAt?: string;
+  nextFollowUpAt?: string;
+  escalateAfterFollowUps?: number;
+  escalationEnabled?: boolean;
+  escalationTriggeredAt?: string;
+  escalationProvider?: string;
+  escalationEmail?: string;
+  escalationLetterPreview?: string;
+  cardLastFour?: string;
+  cardProvider?: string;
+  escalatedToCardProvider?: boolean;
+  cardProviderName?: string;
+  cardProviderEmail?: string;
+  escalationEmailStatus?: "queued" | "sent" | "failed";
+  responseStatus?: ClaimResponseStatus;
+  responseSignals?: string[];
+  heardBackAt?: string;
 };
 
 export type AppSnapshot = {

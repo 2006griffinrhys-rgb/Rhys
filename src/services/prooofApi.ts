@@ -51,6 +51,11 @@ function asBoolean(value: unknown, fallback = false): boolean {
   return typeof value === "boolean" ? value : fallback;
 }
 
+function asArrayOfStrings(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string");
+}
+
 function asReceiptStatus(value: unknown): ReceiptStatus {
   if (value === "processed" || value === "pending" || value === "failed") {
     return value;
@@ -69,6 +74,10 @@ function asClaimStatus(value: unknown): ClaimStatus {
     return value;
   }
   return "submitted";
+}
+
+function asClaimKind(value: unknown): Claim["kind"] {
+  return value === "bill" || value === "product" ? value : undefined;
 }
 
 function isEmailProviderId(value: string): value is EmailProviderId {
@@ -205,6 +214,30 @@ function mapClaim(row: UnknownRow): Claim {
     createdAt: asDateString(row.created_at),
     estimatedPayoutCents: Math.round(asNumber(row.estimated_payout_cents, 0)),
     estimatedPayoutCurrency: asString(row.estimated_payout_currency, "GBP"),
+    kind: asClaimKind(row.kind),
+    requestedOutcome: asOptionalString(row.requested_outcome) as Claim["requestedOutcome"],
+    recommendedOutcome: asOptionalString(row.recommended_outcome) as Claim["recommendedOutcome"],
+    issueDescription: asOptionalString(row.issue_description),
+    supplierName: asOptionalString(row.supplier_name),
+    supplierEmail: asOptionalString(row.supplier_email),
+    generatedLetterPreview: asOptionalString(row.generated_letter_preview),
+    emailDeliveryStatus: asOptionalString(row.email_delivery_status) as Claim["emailDeliveryStatus"],
+    followUpEnabled: asBoolean(row.follow_up_enabled, true),
+    followUpIntervalDays: Math.max(1, Math.round(asNumber(row.follow_up_interval_days, 5))),
+    nextFollowUpAt: asOptionalString(row.next_follow_up_at),
+    followUpCount: Math.max(0, Math.round(asNumber(row.follow_up_count, 0))),
+    lastFollowUpAt: asOptionalString(row.last_follow_up_at),
+    cardLastFour: asOptionalString(row.card_last_four),
+    cardProvider: asOptionalString(row.card_provider),
+    escalateAfterFollowUps: Math.max(1, Math.round(asNumber(row.escalate_after_follow_ups, 3))),
+    escalationEnabled: asBoolean(row.escalation_enabled, true),
+    escalationTriggeredAt: asOptionalString(row.escalation_triggered_at),
+    escalationProvider: asOptionalString(row.escalation_provider),
+    escalationEmail: asOptionalString(row.escalation_email),
+    escalationLetterPreview: asOptionalString(row.escalation_letter_preview),
+    escalationEmailStatus: asOptionalString(row.escalation_email_status) as Claim["escalationEmailStatus"],
+    responseStatus: asOptionalString(row.response_status) as Claim["responseStatus"],
+    responseSignals: asArrayOfStrings(row.response_signals),
   };
 }
 

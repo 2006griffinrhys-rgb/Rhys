@@ -12,6 +12,7 @@ type ProductClaimRequest = {
   userReason: string;
   signerName: string;
   requestedOutcome: ProductClaimOutcome;
+  supplierEmailOverride?: string;
 };
 
 type BillClaimRequest = {
@@ -23,6 +24,7 @@ type BillClaimRequest = {
   userReason: string;
   signerName: string;
   requestedOutcome: BillClaimOutcome;
+  supplierEmailOverride?: string;
 };
 
 export type ClaimLetterResult = {
@@ -92,7 +94,7 @@ function getProductLegalPosition(
 
 function buildProductLetter(input: ProductClaimRequest): ClaimLetterResult {
   const supplierName = input.merchant;
-  const supplierEmail = inferSupplierEmail(supplierName);
+  const supplierEmail = input.supplierEmailOverride ?? inferSupplierEmail(supplierName);
   const legal = getProductLegalPosition(input.purchaseDate, input.requestedOutcome);
   const requestedLabel = PRODUCT_OUTCOME_LABELS[input.requestedOutcome];
   const recommendedLabel = PRODUCT_OUTCOME_LABELS[legal.recommendedOutcome];
@@ -133,7 +135,7 @@ function buildProductLetter(input: ProductClaimRequest): ClaimLetterResult {
 
 function buildBillLetter(input: BillClaimRequest): ClaimLetterResult {
   const supplierName = input.supplier;
-  const supplierEmail = inferSupplierEmail(supplierName);
+  const supplierEmail = input.supplierEmailOverride ?? inferSupplierEmail(supplierName);
   const requestedLabel = BILL_OUTCOME_LABELS[input.requestedOutcome];
   const recommendedOutcome: BillClaimOutcome =
     input.requestedOutcome === "not-sure" ? "itemised-breakdown" : input.requestedOutcome;
@@ -219,6 +221,115 @@ export async function generateAndSendBillClaimEmail(input: BillClaimRequest): Pr
   });
   return {
     ...built,
+    emailStatus: status,
+  };
+}
+
+type FollowUpRequest = {
+  userId: string;
+  claimKind: "product" | "bill";
+  claimId: string;
+  supplierName: string;
+  supplierEmail: string;
+  productName: string;
+  issueDescription: string;
+  requestedOutcome: ProductClaimOutcome | BillClaimOutcome;
+  followUpNumber: number;
+};
+
+type EscalationRequest = {
+  userId: string;
+  claimId: string;
+  cardProviderName: string;
+  cardProviderEmail: string;
+  supplierName: string;
+  supplierEmail: string;
+  productName: string;
+  issueDescription: string;
+  requestedOutcome: ProductClaimOutcome | BillClaimOutcome;
+  followUpsSent: number;
+};
+
+function formatOutcomeLabel(outcome: ProductClaimOutcome | BillClaimOutcome): string {
+  if (outcome in PRODUCT_OUTCOME_LABELS) {
+    return PRODUCT_OUTCOME_LABELS[outcome as ProductClaimOutcome];
+  }
+  return BILL_OUTCOME_LABELS[outcome as BillClaimOutcome];
+}
+
+export async function generateAndSendClaimFollowUpEmail(input: FollowUpRequest): Promise<{
+  letterPreview: string;
+  emailStatus: "queued" | "sent" | "failed";
+}> {
+  const requestedLabel = formatOutcomeLabel(input.requestedOutcome);
+  const letterPreview = [
+    `Subject: Follow-up ${input.followUpNumber} - ${input.productName} (${input.claimId})`,
+    "",
+    `Dear ${input.supplierName},`,
+    "",
+    `This is follow-up #${input.followUpNumber} regarding claim ${input.claimId}.`,
+    `Issue summary: ${input.issueDescription}`,
+    `Requested remedy: ${requestedLabel}.`,
+    "Please confirm progress and resolution timeframe.",
+    "",
+    "Kind regards,",
+    "Prooof Claims Team",
+  ].join("\n");
+
+  const status = await dispatchEmail({
+    supplierName: input.supplierName,
+    supplierEmail: input.supplierEmail,
+    requestedOutcome: input.requestedOutcome,
+    recommendedOutcome: input.requestedOutcome,
+    legalBasis: "Follow-up reminder under the original consumer claim request.",
+    letterPreview,
+    emailStatus: "queued",
+    userId: input.userId,
+    claimKind: input.claimKind,
+  });
+
+  return {
+    letterPreview,
+    emailStatus: status,
+  };
+}
+
+export async function generateAndSendCardEscalationEmail(input: EscalationRequest): Promise<{
+  letterPreview: string;
+  emailStatus: "queued" | "sent" | "failed";
+}> {
+  const requestedLabel = formatOutcomeLabel(input.requestedOutcome);
+  const letterPreview = [
+    `Subject: Card dispute escalation - ${input.claimId}`,
+    "",
+    `Dear ${input.cardProviderName} Disputes Team,`,
+    "",
+    `Please escalate a card dispute for claim ${input.claimId}.`,
+    `Merchant: ${input.supplierName} (${input.supplierEmail})`,
+    `Issue: ${input.issueDescription}`,
+    `Requested remedy: ${requestedLabel}`,
+    `Supplier follow-ups sent: ${input.followUpsSent}`,
+    "",
+    "Please advise chargeback/dispute next steps.",
+    "",
+    "Kind regards,",
+    "Prooof Claims Team",
+  ].join("\n");
+
+  const status = await dispatchEmail({
+    supplierName: input.cardProviderName,
+    supplierEmail: input.cardProviderEmail,
+    requestedOutcome: input.requestedOutcome,
+    recommendedOutcome: input.requestedOutcome,
+    legalBasis: "Escalation request to card provider dispute process.",
+    letterPreview,
+    emailStatus: "queued",
+    userId: input.userId,
+    claimKind: "bill",
+  });
+
+  return {
+    letterPreview,
     emailStatus: status,
   };
 }
