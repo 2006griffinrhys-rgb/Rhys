@@ -1,12 +1,14 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { Card } from "@/components/Card";
 import { EmptyState } from "@/components/EmptyState";
+import { ProductClaimDialog } from "@/components/ProductClaimDialog";
 import { Screen } from "@/components/Screen";
 import { SectionTitle } from "@/components/SectionTitle";
 import { useAppData } from "@/providers/AppDataProvider";
 import { colors, spacing } from "@/theme/colors";
-import type { Claim } from "@/types/domain";
+import { useAuth } from "@/providers/AuthProvider";
+import type { Claim, ProductClaimOutcome, Recall } from "@/types/domain";
 import { formatCents, formatDate } from "@/utils/format";
 
 type RecallClaimState = "Ready" | "Pending" | "Failed" | "Successful";
@@ -50,8 +52,18 @@ function getClaimStateBadgeStyle(state: RecallClaimState) {
 }
 
 export function RecallsScreen() {
-  const { recalls, claims, refresh, refreshing, createClaimForRecall, claimLimitReached, claimTier } =
-    useAppData();
+  const { user } = useAuth();
+  const {
+    recalls,
+    claims,
+    refresh,
+    refreshing,
+    submitProductClaimWithEmail,
+    claimLimitReached,
+    claimTier,
+  } = useAppData();
+  const [activeRecall, setActiveRecall] = useState<Recall | null>(null);
+  const [submittingClaim, setSubmittingClaim] = useState(false);
 
   const manufacturerRecalls = useMemo(
     () => recalls.filter((recall) => recall.isActive && isManufacturerIdentifiedRecall(recall.source)),
@@ -77,7 +89,43 @@ export function RecallsScreen() {
     }
     const recall = manufacturerRecalls.find((item) => item.id === recallId);
     if (!recall) return;
-    await createClaimForRecall(recall);
+    setActiveRecall(recall);
+  };
+
+  const handleSubmitRecallClaim = async (payload: {
+    reason: string;
+    outcome: ProductClaimOutcome;
+    signOffName: string;
+  }) => {
+    if (!activeRecall) return;
+    try {
+      setSubmittingClaim(true);
+      const claim = await submitProductClaimWithEmail({
+        recallId: activeRecall.id,
+        productName: activeRecall.productName,
+        merchant: activeRecall.source,
+        amountCents: activeRecall.estimatedPayoutCents,
+        currency: activeRecall.estimatedPayoutCurrency,
+        purchaseDate: activeRecall.publishedAt,
+        reason: payload.reason,
+        signOffName: payload.signOffName,
+        requestedOutcome: payload.outcome,
+      });
+      if (claim.emailDeliveryStatus === "failed") {
+        Alert.alert(
+          "Claim saved, email failed",
+          "Your recall claim was created but the supplier email failed to send. Please retry shortly.",
+        );
+      } else {
+        Alert.alert("Claim submitted", `Recall claim email sent for ${activeRecall.productName}.`);
+      }
+      setActiveRecall(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not create recall claim.";
+      Alert.alert("Claim failed", message);
+    } finally {
+      setSubmittingClaim(false);
+    }
   };
 
   return (
@@ -155,6 +203,25 @@ export function RecallsScreen() {
           )}
         </View>
       </View>
+      <ProductClaimDialog
+        visible={activeRecall !== null}
+        opportunity={
+          activeRecall
+            ? {
+                id: activeRecall.id,
+                title: activeRecall.productName,
+                merchant: activeRecall.source,
+                amountCents: activeRecall.estimatedPayoutCents,
+                currency: activeRecall.estimatedPayoutCurrency,
+                purchaseDate: activeRecall.publishedAt,
+              }
+            : null
+        }
+        defaultSignOffName={user?.email ?? ""}
+        submitting={submittingClaim}
+        onClose={() => setActiveRecall(null)}
+        onSubmit={handleSubmitRecallClaim}
+      />
     </Screen>
   );
 }

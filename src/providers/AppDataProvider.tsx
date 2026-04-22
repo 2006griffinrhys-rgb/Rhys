@@ -122,6 +122,7 @@ type AppDataContextValue = AppDataState & {
     reason: string;
     signOffName: string;
     requestedOutcome: ProductClaimOutcome;
+    recallId?: string;
   }) => Promise<Claim>;
   submitBillClaimWithEmail: (input: {
     billReference: string;
@@ -552,6 +553,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       reason: string;
       signOffName: string;
       requestedOutcome: ProductClaimOutcome;
+      recallId?: string;
     }) => {
       if (!user?.id) {
         throw new Error("Sign in before creating claims.");
@@ -569,7 +571,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       });
       const claim: Claim = {
         id: `product-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        recallId: `product-${Date.now()}`,
+        recallId: input.recallId ?? `product-${Date.now()}`,
         productName: input.productName,
         status: letter.emailStatus === "failed" ? "rejected" : "submitted",
         createdAt: new Date().toISOString(),
