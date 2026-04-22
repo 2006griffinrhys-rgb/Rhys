@@ -378,6 +378,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           ...receipt,
           totalCents: convertCents(receipt.totalCents, receipt.currency, preferredCurrency),
           currency: preferredCurrency,
+          supplierWarrantySource: receipt.supplierWarrantySource,
+          supplierWarrantyMonths: receipt.supplierWarrantyMonths,
         })),
         recalls: snapshot.recalls.map((recall) => ({
           ...recall,

@@ -179,6 +179,27 @@ function dedupeReceipts(rows: Receipt[]): Receipt[] {
 
 function mapReceipt(row: UnknownRow): Receipt {
   const rawTotalCents = resolveRawTotalCents(row);
+  const warrantyPeriodMonths = asNumber(
+    row.warranty_period_months ?? row.warranty_months,
+    -1,
+  );
+  const supplierWarrantyMonths = asNumber(
+    row.supplier_warranty_months ?? row.supplier_warranty_period_months,
+    -1,
+  );
+  const normalizedWarrantySource = asString(
+    row.warranty_source ?? row.supplier_warranty_source ?? row.warranty_known_source,
+    "",
+  )
+    .trim()
+    .toLowerCase();
+  const warrantySource =
+    normalizedWarrantySource === "invoice" ||
+    normalizedWarrantySource === "supplier-site" ||
+    normalizedWarrantySource === "supplier site"
+      ? (normalizedWarrantySource === "supplier site" ? "supplier-site" : normalizedWarrantySource)
+      : undefined;
+
   return {
     id: asString(row.id, Math.random().toString(36).slice(2)),
     merchant: asString(row.merchant, "Unknown merchant"),
@@ -189,6 +210,13 @@ function mapReceipt(row: UnknownRow): Receipt {
       ? asString(row.source)
       : "manual") as Receipt["source"],
     status: asReceiptStatus(row.status),
+    supplierWarrantyMonths:
+      supplierWarrantyMonths > 0
+        ? Math.round(supplierWarrantyMonths)
+        : warrantyPeriodMonths > 0
+          ? Math.round(warrantyPeriodMonths)
+          : undefined,
+    supplierWarrantySource: warrantySource,
   };
 }
 

@@ -30,6 +30,8 @@ type ClaimOpportunity = {
   subtypeIcon: string;
   ageMonths: number;
   withinSupplierWarranty: boolean;
+  hasKnownWarranty: boolean;
+  warrantyLabel?: string;
 };
 
 type CategoryTab = {
@@ -309,10 +311,69 @@ function getSupplierWarrantyWindowMonths(subtype: OpportunitySubtype, tone: Clai
   return 12;
 }
 
+type WarrantySummary = {
+  withinSupplierWarranty: boolean;
+  hasKnownWarranty: boolean;
+  knownWarrantyMonths?: number;
+  knownWarrantySource?: "invoice" | "supplier-site";
+  fallbackWarrantyMonths?: number;
+};
+
+function resolveWarrantySummary(input: {
+  tone: ClaimCategoryTone;
+  subtype: OpportunitySubtype;
+  purchaseDate: string;
+  supplierWarrantyMonths?: number;
+  supplierWarrantySource?: "invoice" | "supplier-site";
+}): WarrantySummary {
+  const ageMonths = getAgeInMonths(input.purchaseDate);
+  if (input.tone !== "goods") {
+    return {
+      withinSupplierWarranty: false,
+      hasKnownWarranty: false,
+    };
+  }
+
+  const fallbackWarrantyMonths = getSupplierWarrantyWindowMonths(input.subtype, input.tone) ?? undefined;
+  const knownWarrantyMonths =
+    typeof input.supplierWarrantyMonths === "number" && input.supplierWarrantyMonths > 0
+      ? input.supplierWarrantyMonths
+      : undefined;
+  const hasKnownWarranty = Boolean(
+    knownWarrantyMonths &&
+      (input.supplierWarrantySource === "invoice" || input.supplierWarrantySource === "supplier-site"),
+  );
+
+  if (hasKnownWarranty && knownWarrantyMonths) {
+    return {
+      withinSupplierWarranty: ageMonths <= knownWarrantyMonths,
+      hasKnownWarranty: true,
+      knownWarrantyMonths,
+      knownWarrantySource: input.supplierWarrantySource,
+      fallbackWarrantyMonths,
+    };
+  }
+
+  return {
+    withinSupplierWarranty: fallbackWarrantyMonths ? ageMonths <= fallbackWarrantyMonths : false,
+    hasKnownWarranty: false,
+    fallbackWarrantyMonths,
+  };
+}
+
+function buildKnownWarrantyLabel(months: number, source: "invoice" | "supplier-site"): string {
+  const years = months / 12;
+  const durationLabel =
+    Number.isInteger(years) && years >= 1 ? `${years}yr` : `${months}m`;
+  const sourceLabel = source === "invoice" ? "from invoice" : "supplier site";
+  return `Under warranty · ${durationLabel} (${sourceLabel})`;
+}
+
 function getRecommendationForOpportunity(
   tone: ClaimCategoryTone,
   subtype: OpportunitySubtype,
   purchaseDate: string,
+  warrantySummary: WarrantySummary,
 ): {
   recommendation: string;
   explanation: string;
@@ -320,16 +381,21 @@ function getRecommendationForOpportunity(
   withinSupplierWarranty: boolean;
 } {
   const ageMonths = getAgeInMonths(purchaseDate);
-  const warrantyMonths = getSupplierWarrantyWindowMonths(subtype, tone);
-  const withinSupplierWarranty = warrantyMonths !== null ? ageMonths <= warrantyMonths : false;
+  const withinSupplierWarranty = warrantySummary.withinSupplierWarranty;
 
   if (tone === "goods") {
     const warrantySnippet =
-      warrantyMonths === null
-        ? "Supplier warranty window unavailable."
-        : withinSupplierWarranty
-          ? `Likely within a typical ${warrantyMonths}-month supplier warranty window (confirm online).`
-          : `Likely outside a typical ${warrantyMonths}-month supplier warranty window (confirm online).`;
+      warrantySummary.hasKnownWarranty &&
+      warrantySummary.knownWarrantyMonths &&
+      warrantySummary.knownWarrantySource
+        ? withinSupplierWarranty
+          ? `Confirmed within ${warrantySummary.knownWarrantyMonths}-month supplier warranty (${warrantySummary.knownWarrantySource === "invoice" ? "from invoice" : "supplier site"}).`
+          : `Confirmed outside ${warrantySummary.knownWarrantyMonths}-month supplier warranty (${warrantySummary.knownWarrantySource === "invoice" ? "from invoice" : "supplier site"}).`
+        : warrantySummary.fallbackWarrantyMonths
+          ? withinSupplierWarranty
+            ? `Likely within a typical ${warrantySummary.fallbackWarrantyMonths}-month supplier warranty window (confirm online).`
+            : `Likely outside a typical ${warrantySummary.fallbackWarrantyMonths}-month supplier warranty window (confirm online).`
+          : "Supplier warranty window unavailable.";
     return {
       recommendation: "Refund or repair opportunity",
       explanation: `${ageMonths} month${ageMonths === 1 ? "" : "s"} old - ${warrantySnippet} Consumer Rights Act 2015 covers faulty goods up to 6 years.`,
@@ -425,10 +491,18 @@ export function DashboardScreen() {
         continue;
       }
       const subtype = resolveSubtypeFromMerchant(receipt.merchant, classification.tone);
+      const warrantySummary = resolveWarrantySummary({
+        tone: classification.tone,
+        subtype,
+        purchaseDate: receipt.purchaseDate,
+        supplierWarrantyMonths: receipt.supplierWarrantyMonths,
+        supplierWarrantySource: receipt.supplierWarrantySource,
+      });
       const recommendation = getRecommendationForOpportunity(
         classification.tone,
         subtype,
         receipt.purchaseDate,
+        warrantySummary,
       );
       rows.push({
         id: receipt.id,
@@ -448,6 +522,17 @@ export function DashboardScreen() {
         subtypeIcon: getSubtypeIcon(subtype),
         ageMonths: recommendation.ageMonths,
         withinSupplierWarranty: recommendation.withinSupplierWarranty,
+        hasKnownWarranty: warrantySummary.hasKnownWarranty,
+        warrantyLabel:
+          warrantySummary.hasKnownWarranty &&
+          recommendation.withinSupplierWarranty &&
+          warrantySummary.knownWarrantyMonths &&
+          warrantySummary.knownWarrantySource
+            ? buildKnownWarrantyLabel(
+                warrantySummary.knownWarrantyMonths,
+                warrantySummary.knownWarrantySource,
+              )
+            : undefined,
       });
     }
     return rows;
@@ -764,7 +849,7 @@ export function DashboardScreen() {
                         <View
                           style={[
                             styles.metaBubble,
-                            item.withinSupplierWarranty
+                            item.hasKnownWarranty && item.withinSupplierWarranty
                               ? styles.warrantyBubblePositive
                               : styles.warrantyBubbleNeutral,
                           ]}
@@ -772,13 +857,13 @@ export function DashboardScreen() {
                           <Text
                             style={[
                               styles.metaBubbleText,
-                              item.withinSupplierWarranty
+                              item.hasKnownWarranty && item.withinSupplierWarranty
                                 ? styles.warrantyBubbleTextPositive
                                 : styles.warrantyBubbleTextNeutral,
                             ]}
                           >
-                            {item.withinSupplierWarranty
-                              ? "Within supplier warranty"
+                            {item.hasKnownWarranty && item.withinSupplierWarranty
+                              ? item.warrantyLabel
                               : "Check supplier warranty"}
                           </Text>
                         </View>

@@ -36,6 +36,9 @@ export type Receipt = {
   purchaseDate: string;
   source: EmailProviderId | "manual";
   status: ReceiptStatus;
+  supplierWarrantyMonths?: number;
+  supplierWarrantySource?: "invoice" | "supplier-site";
+  supplierWarrantyCheckedAt?: string;
 };
 
 export type Product = {

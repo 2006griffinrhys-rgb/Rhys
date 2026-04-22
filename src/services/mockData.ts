@@ -18,6 +18,8 @@ export const MOCK_RECEIPTS: Receipt[] = [
     purchaseDate: "2026-04-01T17:20:00.000Z",
     status: "pending",
     source: "outlook",
+    supplierWarrantySource: "invoice",
+    supplierWarrantyMonths: 24,
   },
   {
     id: "r-003",
@@ -36,6 +38,8 @@ export const MOCK_RECEIPTS: Receipt[] = [
     purchaseDate: "2026-04-12T15:45:00.000Z",
     status: "processed",
     source: "gmail",
+    supplierWarrantySource: "supplier-site",
+    supplierWarrantyMonths: 24,
   },
   {
     id: "r-005",
@@ -126,6 +130,8 @@ export const MOCK_RECEIPTS: Receipt[] = [
     purchaseDate: "2026-04-06T16:41:00.000Z",
     status: "processed",
     source: "gmail",
+    supplierWarrantySource: "invoice",
+    supplierWarrantyMonths: 12,
   },
   {
     id: "r-015",
