@@ -11,11 +11,12 @@ import {
 import { useAuth } from "@/providers/AuthProvider";
 import { Screen } from "@/components/Screen";
 import { colors } from "@/theme/colors";
+import { env } from "@/services/env";
 
 type AuthMode = "signin" | "signup";
 
 export function AuthScreen() {
-  const { signIn, signUp, loading } = useAuth();
+  const { signIn, signUp, continueWithDemo, loading } = useAuth();
   const [mode, setMode] = useState<AuthMode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -40,6 +41,11 @@ export function AuthScreen() {
     }
 
     setMessage(result.error);
+  };
+
+  const handleDemoEntry = async () => {
+    setMessage(null);
+    await continueWithDemo();
   };
 
   return (
@@ -99,6 +105,12 @@ export function AuthScreen() {
               {loading ? "Please wait..." : mode === "signin" ? "Sign In" : "Create Account"}
             </Text>
           </Pressable>
+
+          {!env.hasSupabaseConfig ? (
+            <Pressable onPress={handleDemoEntry} style={styles.demoButton}>
+              <Text style={styles.demoButtonText}>Continue in Demo Mode</Text>
+            </Pressable>
+          ) : null}
 
           {!!message && <Text style={styles.message}>{message}</Text>}
         </View>
@@ -184,5 +196,18 @@ const styles = StyleSheet.create({
   message: {
     color: colors.warning,
     lineHeight: 20,
+  },
+  demoButton: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: 12,
+    alignItems: "center",
+    backgroundColor: colors.surface,
+  },
+  demoButtonText: {
+    color: colors.textPrimary,
+    fontWeight: "600",
+    fontSize: 14,
   },
 });

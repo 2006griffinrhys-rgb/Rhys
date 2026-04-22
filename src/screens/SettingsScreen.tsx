@@ -10,7 +10,7 @@ import { getEnvSummary } from "@/services/env";
 const SUPPORT_URL = "https://www.prooof.app";
 
 export function SettingsScreen() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, isDemoAuth } = useAuth();
   const { refresh, refreshing } = useAppData();
   const envSummary = getEnvSummary();
 
@@ -66,6 +66,10 @@ export function SettingsScreen() {
         <View style={styles.envRow}>
           <Text style={styles.envLabel}>Using fallback:</Text>
           <Text style={styles.envValue}>{envSummary.usingFallback ? "Yes" : "No"}</Text>
+        </View>
+        <View style={styles.envRow}>
+          <Text style={styles.envLabel}>Auth mode:</Text>
+          <Text style={styles.envValue}>{isDemoAuth ? "Demo auth" : "Supabase auth"}</Text>
         </View>
       </Card>
 

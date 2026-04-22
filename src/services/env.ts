@@ -32,6 +32,7 @@ export const env = {
   supabaseAnonKey,
   supabaseProjectId,
   hasSupabaseConfig: Boolean(supabaseUrl && supabaseAnonKey),
+  demoAuthEnabled: process.env.EXPO_PUBLIC_ENABLE_DEMO_AUTH === "true" || !(supabaseUrl && supabaseAnonKey),
 };
 
 export function isSupabaseConfigured(): boolean {
@@ -43,5 +44,6 @@ export function getEnvSummary() {
     supabaseUrl: env.supabaseUrl || "Not configured",
     projectId: env.supabaseProjectId || "Not configured",
     usingFallback: !env.hasSupabaseConfig,
+    demoAuthEnabled: env.demoAuthEnabled,
   };
 }

@@ -51,6 +51,31 @@ Native mobile companion for the Prooof platform, built with Expo + React Native 
    npm run start
    ```
 
+## Test ASAP (fastest path)
+
+If you just want to test the app immediately:
+
+1. Install and run preflight checks:
+
+   ```bash
+   npm install
+   npm run preflight
+   ```
+
+2. Start Expo:
+
+   ```bash
+   npm run start
+   ```
+
+3. Open on device:
+   - scan QR with Expo Go (Android)
+   - scan QR from Camera app (iOS) if Expo Go is installed
+
+4. On the auth screen, tap **Continue in Demo Mode**.
+   - This bypasses backend auth and loads built-in demo receipts/products/recalls/claims for immediate QA.
+   - You can switch to live Supabase auth anytime by adding real `.env` values.
+
 ## Running natively
 
 - iOS simulator:
@@ -64,6 +89,18 @@ Native mobile companion for the Prooof platform, built with Expo + React Native 
   ```bash
   npm run android
   ```
+
+## Local quality checks
+
+```bash
+npm run preflight
+npm run verify
+```
+
+`verify` runs:
+- TypeScript typecheck
+- ESLint
+- Expo dependency sanity check
 
 ## Build store-ready binaries (EAS)
 
