@@ -362,3 +362,20 @@ export async function runMultiProviderInboxScan(
     warnings,
   };
 }
+
+export async function requestServerScanFallback(userId: string, providers: EmailProviderId[]) {
+  if (!env.hasSupabaseConfig || !userId) {
+    return { accepted: true, mode: "mock" as const };
+  }
+  const { error } = await supabase.functions.invoke("schedule-inbox-background-scan", {
+    body: {
+      userId,
+      providers: providers.length ? providers : ALL_EMAIL_PROVIDERS,
+      noCap: true,
+    },
+  });
+  if (error) {
+    throw new Error(error.message);
+  }
+  return { accepted: true, mode: "live" as const };
+}

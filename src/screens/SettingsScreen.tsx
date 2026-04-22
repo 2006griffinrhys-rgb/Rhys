@@ -286,6 +286,18 @@ export function SettingsScreen() {
             <Text style={styles.envLabel}>Stripe billing</Text>
             <Text style={styles.envValue}>{envSummary.stripeBillingEnabled ? "Enabled" : "Disabled"}</Text>
           </View>
+          <View style={styles.envRow}>
+            <Text style={styles.envLabel}>Background inbox task</Text>
+            <Text style={styles.envValue}>
+              {envSummary.backgroundInboxTaskEnabled
+                ? `Enabled (${envSummary.backgroundInboxTaskIntervalSeconds}s target)`
+                : "Disabled"}
+            </Text>
+          </View>
+          <View style={styles.envRow}>
+            <Text style={styles.envLabel}>Server scan fallback</Text>
+            <Text style={styles.envValue}>{envSummary.serverScanFallbackEnabled ? "Enabled" : "Disabled"}</Text>
+          </View>
         </View>
       </Card>
 

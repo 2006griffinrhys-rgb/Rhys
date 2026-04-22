@@ -26,7 +26,7 @@
       "bundler": "metro",
       "output": "single"
     },
-    "plugins": [],
+    "plugins": ["expo-background-fetch", "expo-task-manager"],
     "extra": {
       "eas": {
         "projectId": "00000000-0000-0000-0000-000000000000"

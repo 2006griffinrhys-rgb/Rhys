@@ -14,6 +14,12 @@ import type {
   SupportedCurrency,
 } from "@/types/domain";
 import {
+  clearBackgroundScanContext,
+  registerInboxBackgroundTask,
+  setBackgroundScanContext,
+  unregisterInboxBackgroundTask,
+} from "@/services/inboxBackgroundTask";
+import {
   computeStats,
   createClaimForRecall,
   fetchSnapshotForUser,
@@ -335,6 +341,9 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       const result = await runMultiProviderInboxScan(user.id, inboxScanProviders);
       setInboxScanLastCount(result.scannedEmails);
       setLastInboxScan(result);
+      if (env.serverScanFallbackEnabled) {
+        await requestServerScanFallback(user.id, inboxScanProviders);
+      }
       await loadData();
     } catch {
       // Keep background scanning resilient and avoid surfacing noisy errors to users.
@@ -350,6 +359,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (!user?.id || !env.autoInboxScanEnabled) {
+      autoScanInFlightRef.current = false;
       return;
     }
 
@@ -363,8 +373,30 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         clearInterval(autoScanTimerRef.current);
         autoScanTimerRef.current = null;
       }
+      autoScanInFlightRef.current = false;
     };
   }, [inboxScanProviders, runInboxScanSilently, user?.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const syncBackgroundTask = async () => {
+      if (!user?.id || !env.backgroundInboxTaskEnabled) {
+        await clearBackgroundScanContext();
+        await unregisterInboxBackgroundTask();
+        return;
+      }
+      await setBackgroundScanContext(user.id, inboxScanProviders);
+      if (cancelled) return;
+      await registerInboxBackgroundTask();
+    };
+
+    void syncBackgroundTask();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [inboxScanProviders, user?.id]);
 
   const claimsUsed = useMemo(() => {
     const currentMonth = toBillingCycleMonth(new Date());

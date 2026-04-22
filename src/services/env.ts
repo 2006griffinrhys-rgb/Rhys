@@ -11,6 +11,9 @@ type ExtraConfig = {
       stripeBillingEnabled?: boolean;
       autoInboxScanEnabled?: boolean;
       autoInboxScanIntervalSeconds?: number;
+      backgroundInboxTaskEnabled?: boolean;
+      backgroundInboxTaskIntervalSeconds?: number;
+      serverScanFallbackEnabled?: boolean;
     };
   };
 };
@@ -63,6 +66,25 @@ const autoInboxScanIntervalSeconds =
 
 const autoInboxScanIntervalMs = autoInboxScanIntervalSeconds * 1000;
 
+const backgroundInboxTaskEnabled =
+  process.env.EXPO_PUBLIC_BACKGROUND_INBOX_TASK_ENABLED !== "false" &&
+  extraConfig.expoConfig?.extra?.backgroundInboxTaskEnabled !== false;
+
+const backgroundInboxTaskIntervalSecondsRaw = Number(
+  process.env.EXPO_PUBLIC_BACKGROUND_INBOX_TASK_INTERVAL_SECONDS ??
+    extraConfig.expoConfig?.extra?.backgroundInboxTaskIntervalSeconds ??
+    900,
+);
+
+const backgroundInboxTaskIntervalSeconds =
+  Number.isFinite(backgroundInboxTaskIntervalSecondsRaw) && backgroundInboxTaskIntervalSecondsRaw > 0
+    ? Math.max(900, Math.round(backgroundInboxTaskIntervalSecondsRaw))
+    : 900;
+
+const serverScanFallbackEnabled =
+  process.env.EXPO_PUBLIC_SERVER_SCAN_FALLBACK_ENABLED !== "false" &&
+  extraConfig.expoConfig?.extra?.serverScanFallbackEnabled !== false;
+
 export const env = {
   supabaseUrl,
   supabaseAnonKey,
@@ -73,6 +95,9 @@ export const env = {
   autoInboxScanEnabled,
   autoInboxScanIntervalMs,
   autoInboxScanIntervalSeconds,
+  backgroundInboxTaskEnabled,
+  backgroundInboxTaskIntervalSeconds,
+  serverScanFallbackEnabled,
   hasSupabaseConfig: Boolean(supabaseUrl && supabaseAnonKey),
   demoAuthEnabled: process.env.EXPO_PUBLIC_ENABLE_DEMO_AUTH === "true" || !(supabaseUrl && supabaseAnonKey),
 };
@@ -89,6 +114,9 @@ export function getEnvSummary() {
     stripePortalUrl: env.stripePortalUrl || "Not configured",
     autoInboxScanEnabled: env.autoInboxScanEnabled,
     autoInboxScanIntervalSeconds: env.autoInboxScanIntervalSeconds,
+    backgroundInboxTaskEnabled: env.backgroundInboxTaskEnabled,
+    backgroundInboxTaskIntervalSeconds: env.backgroundInboxTaskIntervalSeconds,
+    serverScanFallbackEnabled: env.serverScanFallbackEnabled,
     usingFallback: !env.hasSupabaseConfig,
     demoAuthEnabled: env.demoAuthEnabled,
   };

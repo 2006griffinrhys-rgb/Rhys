@@ -186,3 +186,24 @@ Implemented billing behavior:
 - Free plan: 5 claims/month, no bill monitoring.
 - Premium: 20 claims/month + bill alerts + chasing.
 - Unlimited: unlimited claims + priority support.
+
+## Background scanning (app closed / OS-managed)
+
+The app includes native background task support so inbox scanning can continue when the app is not foregrounded:
+
+- Expo TaskManager + BackgroundFetch task: `prooof-inbox-background-scan`
+- Plugin configuration in `app.json`: `expo-background-fetch`, `expo-task-manager`
+- Task context (user + providers) persisted locally and synced from `AppDataProvider`
+
+Environment controls:
+
+- `EXPO_PUBLIC_BACKGROUND_INBOX_TASK_ENABLED=true`
+- `EXPO_PUBLIC_BACKGROUND_INBOX_TASK_INTERVAL_SECONDS=900` (minimum 900 on mobile OS scheduling)
+- `EXPO_PUBLIC_SERVER_SCAN_FALLBACK_ENABLED=true`
+
+Important platform note:
+
+- iOS/Android background task scheduling is OS-controlled and not truly real-time; execution cadence may vary by device, battery policy, and app usage.
+- For higher reliability while app is terminated, the app also invokes a server fallback scheduler function:
+  - `schedule-inbox-background-scan` (Supabase function template included under `supabase/functions/`)
+  - this function should be deployed with `SUPABASE_SERVICE_ROLE_KEY` available in Supabase project secrets
