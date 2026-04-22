@@ -23,6 +23,7 @@ import {
   computeStats,
   createClaimForRecall,
   fetchSnapshotForUser,
+  requestServerScanFallback,
   runMultiProviderInboxScan,
 } from "@/services/prooofApi";
 import {
