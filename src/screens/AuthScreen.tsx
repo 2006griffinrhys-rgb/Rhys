@@ -51,55 +51,22 @@ export function AuthScreen() {
   return (
     <Screen backgroundColor={colors.authBackground}>
       <KeyboardAvoidingView behavior={Platform.select({ ios: "padding", default: undefined })} style={styles.fill}>
-        <View style={styles.page}>
-          <View style={styles.topBar}>
+        <View style={styles.container}>
+          <View style={styles.topRow}>
             <View style={styles.logoWrap}>
               <View style={styles.logoDot}>
                 <Text style={styles.logoPound}>£</Text>
               </View>
               <Text style={styles.logoText}>Prooof</Text>
             </View>
-            <View style={styles.topMeta}>
-              <View style={styles.topPill}>
-                <Text style={styles.topPillText}>Secure</Text>
-              </View>
-              <Text style={styles.topMetaText}>Sign in required</Text>
-            </View>
           </View>
 
-          <View style={styles.content}>
-            <View style={styles.heroCard}>
-              <View style={styles.heroGradientStart} />
-              <View style={styles.heroGradientBlend} />
-              <Text style={styles.heroLabel}>PREVIEW</Text>
-              <View style={styles.heroMainRow}>
-                <Text style={styles.heroAmount}>£793.05</Text>
-                <Text style={styles.heroHeadline}>in your inbox</Text>
-              </View>
-              <Text style={styles.heroMeta}>Sign in to unlock your live tracked value</Text>
-            </View>
+          <View style={styles.hero}>
+            <Text style={styles.heroHeadlinePrimary}>Every receipt,</Text>
+            <Text style={styles.heroHeadlineAccent}>automatically saved.</Text>
+          </View>
 
-            <View style={styles.planStrip}>
-              <View style={styles.planBubble}>
-                <Text style={styles.planBubbleText}>Free</Text>
-              </View>
-              <Text style={styles.planStripMeta}>0 / 5 claims used this month</Text>
-            </View>
-
-            <View style={styles.moneyCard}>
-              <View style={styles.moneyIcon}>
-                <Text style={styles.moneyIconText}>£</Text>
-              </View>
-              <View style={styles.moneyCopy}>
-                <Text style={styles.moneyTitle}>Potential money owed</Text>
-                <Text style={styles.moneyValue}>Up to £793.05</Text>
-                <Text style={styles.moneyMeta}>
-                  Sign in to load your personalized products, claim opportunities, and safety recalls.
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.authCard}>
+          <View style={styles.authCard}>
             <View style={styles.modeContainer}>
               <Pressable
                 onPress={() => setMode("signin")}
@@ -158,7 +125,6 @@ export function AuthScreen() {
             ) : null}
 
             {!!message && <Text style={styles.message}>{message}</Text>}
-            </View>
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -170,29 +136,16 @@ const styles = StyleSheet.create({
   fill: {
     flex: 1,
   },
-  page: {
+  container: {
     flex: 1,
-    gap: spacing.md,
+    gap: spacing.xl,
+    paddingBottom: spacing.xxxl,
   },
-  topBar: {
+  topRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: colors.authSurface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.authBorder,
-    marginHorizontal: -spacing.lg,
-    marginTop: -spacing.lg,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-  },
-  content: {
-    gap: spacing.xl,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.xxl,
-    maxWidth: 1120,
-    width: "100%",
-    alignSelf: "center",
+    marginBottom: spacing.md,
   },
   logoWrap: {
     flexDirection: "row",
@@ -214,166 +167,27 @@ const styles = StyleSheet.create({
   },
   logoText: {
     color: colors.authTextPrimary,
-    fontSize: 30,
+    fontSize: 27,
     fontWeight: "700",
   },
-  topMeta: {
-    flexDirection: "row",
+  hero: {
     alignItems: "center",
-    gap: spacing.sm,
-  },
-  topPill: {
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: colors.authBorderStrong,
-    backgroundColor: colors.authSurfaceSoft,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-  },
-  topPillText: {
-    color: colors.webLandingText,
-    fontSize: 11,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-  },
-  topMetaText: {
-    color: colors.webLandingSubtext,
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  heroCard: {
-    overflow: "hidden",
-    backgroundColor: "#FF6400",
-    borderRadius: radii.xl,
-    paddingVertical: spacing.xl,
-    paddingHorizontal: spacing.xl,
-  },
-  heroGradientStart: {
-    position: "absolute",
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: "46%",
-    backgroundColor: "#FF1E49",
-  },
-  heroGradientBlend: {
-    position: "absolute",
-    left: "42%",
-    top: 0,
-    bottom: 0,
-    width: "18%",
-    backgroundColor: "rgba(255,84,0,0.45)",
-  },
-  heroLabel: {
-    zIndex: 1,
-    color: "#FFE7E3",
-    fontSize: 13,
-    fontWeight: "700",
-    letterSpacing: 0.8,
-  },
-  heroMainRow: {
-    zIndex: 1,
-    marginTop: spacing.sm,
-    flexDirection: "row",
-    alignItems: "flex-end",
-    flexWrap: "wrap",
-    columnGap: spacing.sm,
-  },
-  heroAmount: {
-    color: "#FFFFFF",
-    fontSize: 54,
-    fontWeight: "800",
-    letterSpacing: -1.4,
-  },
-  heroHeadline: {
-    color: "#FFF4EE",
-    fontSize: 48,
-    fontWeight: "700",
-    lineHeight: 56,
-    letterSpacing: -1,
-  },
-  heroMeta: {
-    zIndex: 1,
-    marginTop: spacing.sm,
-    color: "#FFF0E8",
-    fontSize: 20,
-    fontWeight: "500",
-  },
-  planStrip: {
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: colors.authBorder,
-    backgroundColor: colors.authSurface,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    alignItems: "center",
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  planBubble: {
-    borderRadius: radii.pill,
-    backgroundColor: "#FFE7EA",
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-  },
-  planBubbleText: {
-    color: "#DB2340",
-    fontWeight: "700",
-    fontSize: 11,
-  },
-  planStripMeta: {
-    flex: 1,
-    color: colors.webLandingSubtext,
-    fontSize: 13,
-  },
-  moneyCard: {
-    borderRadius: radii.xl,
-    borderWidth: 2,
-    borderColor: "#22C67D",
-    backgroundColor: "#DEF6EA",
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
-    flexDirection: "row",
     gap: spacing.xs,
-    alignItems: "flex-start",
+    marginBottom: spacing.md,
   },
-  moneyIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: radii.pill,
-    backgroundColor: "#00BD74",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 2,
-  },
-  moneyIconText: {
-    color: "#00301B",
+  heroHeadlinePrimary: {
+    color: colors.authTextPrimary,
+    fontSize: 58,
     fontWeight: "800",
-    fontSize: 16,
+    letterSpacing: -1.2,
+    textAlign: "center",
   },
-  moneyCopy: {
-    flex: 1,
-  },
-  moneyTitle: {
-    color: "#108A5A",
-    fontWeight: "700",
-    fontSize: 12,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  moneyValue: {
-    color: colors.webLandingText,
+  heroHeadlineAccent: {
+    color: colors.authBrand,
+    fontSize: 58,
     fontWeight: "800",
-    fontSize: 45,
-    marginTop: spacing.xs,
-    letterSpacing: -0.7,
-  },
-  moneyMeta: {
-    marginTop: spacing.xs,
-    color: colors.webLandingSubtext,
-    fontSize: 18,
-    lineHeight: 25,
+    letterSpacing: -1.2,
+    textAlign: "center",
   },
   authCard: {
     backgroundColor: colors.authSurface,
@@ -382,6 +196,9 @@ const styles = StyleSheet.create({
     borderColor: colors.authBorder,
     padding: spacing.xl,
     gap: spacing.md,
+    maxWidth: 960,
+    width: "100%",
+    alignSelf: "center",
   },
   modeContainer: {
     backgroundColor: colors.authSurfaceSoft,
