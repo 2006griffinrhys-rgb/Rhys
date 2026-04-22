@@ -62,5 +62,6 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     backgroundColor: colors.background,
     minHeight: "100%",
+    width: "100%",
   },
 });

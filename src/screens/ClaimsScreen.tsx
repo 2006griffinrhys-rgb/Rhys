@@ -130,6 +130,7 @@ const styles = StyleSheet.create({
   },
   group: {
     gap: spacing.sm,
+    marginBottom: spacing.xs,
   },
   groupTitle: {
     color: colors.textPrimary,
@@ -148,7 +149,7 @@ const styles = StyleSheet.create({
   },
   name: {
     color: colors.textPrimary,
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "800",
     flex: 1,
   },
@@ -167,8 +168,8 @@ const styles = StyleSheet.create({
   },
   reason: {
     color: colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 19,
     marginBottom: spacing.sm,
   },
   date: {

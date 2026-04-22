@@ -31,16 +31,16 @@ export function Pill({ status }: PillProps) {
 const styles = StyleSheet.create({
   container: {
     borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
     alignSelf: "flex-start",
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderSoft,
   },
   text: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "700",
-    letterSpacing: 0.3,
+    letterSpacing: 0.5,
     textTransform: "uppercase",
   },
 });

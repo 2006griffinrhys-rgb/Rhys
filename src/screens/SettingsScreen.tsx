@@ -348,14 +348,11 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     backgroundColor: colors.primary,
-    borderRadius: 12,
+    borderRadius: 14,
     paddingVertical: 12,
     alignItems: "center",
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: colors.primaryStrong,
   },
   primaryButtonText: {
     color: colors.background,
@@ -364,7 +361,7 @@ const styles = StyleSheet.create({
   ghostButton: {
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 12,
+    borderRadius: 14,
     paddingVertical: 12,
     alignItems: "center",
     marginTop: spacing.sm,
@@ -383,7 +380,7 @@ const styles = StyleSheet.create({
   },
   providerChip: {
     borderWidth: 1,
-    borderColor: colors.borderSoft,
+    borderColor: colors.borderSubtle,
     backgroundColor: colors.surfaceSoft,
     borderRadius: 999,
     paddingHorizontal: 12,
@@ -405,7 +402,7 @@ const styles = StyleSheet.create({
   },
   planButton: {
     borderWidth: 1,
-    borderColor: colors.borderSoft,
+    borderColor: colors.borderSubtle,
     borderRadius: 16,
     backgroundColor: colors.surfaceSoft,
     paddingHorizontal: spacing.md,
@@ -446,7 +443,7 @@ const styles = StyleSheet.create({
   },
   currencyButton: {
     borderWidth: 1,
-    borderColor: colors.borderSoft,
+    borderColor: colors.borderSubtle,
     backgroundColor: colors.surfaceSoft,
     borderRadius: 999,
     paddingHorizontal: 12,
@@ -480,7 +477,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     marginBottom: spacing.sm,
     borderWidth: 1,
-    borderColor: colors.borderSoft,
+    borderColor: colors.borderSubtle,
     backgroundColor: colors.surfaceSoft,
     borderRadius: 12,
     paddingHorizontal: spacing.sm,
@@ -509,11 +506,11 @@ const styles = StyleSheet.create({
   },
   signOutButton: {
     backgroundColor: colors.dangerSoft,
-    borderRadius: 12,
+    borderRadius: 14,
     paddingVertical: 12,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#6f2748",
+    borderColor: "#DFAFC0",
   },
   signOutButtonText: {
     color: colors.danger,
@@ -524,7 +521,7 @@ const styles = StyleSheet.create({
   },
   envRow: {
     borderWidth: 1,
-    borderColor: colors.borderSoft,
+    borderColor: colors.borderSubtle,
     borderRadius: 10,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,

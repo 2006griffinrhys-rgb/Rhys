@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from "react-native";
-import { colors } from "@/theme/colors";
+import { colors, shadows } from "@/theme/colors";
 
 type StatCardProps = {
   label: string;
@@ -23,9 +23,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cardAlt,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderSubtle,
     padding: 16,
     minHeight: 112,
+    ...shadows.softCard,
   },
   label: {
     color: colors.textSecondary,

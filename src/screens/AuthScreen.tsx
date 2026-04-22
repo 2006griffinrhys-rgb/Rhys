@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { useAuth } from "@/providers/AuthProvider";
 import { Screen } from "@/components/Screen";
-import { colors, radii, spacing } from "@/theme/colors";
+import { colors, radii, shadows, spacing } from "@/theme/colors";
 import { env } from "@/services/env";
 
 type AuthMode = "signin" | "signup";
@@ -199,6 +199,7 @@ const styles = StyleSheet.create({
     maxWidth: 960,
     width: "100%",
     alignSelf: "center",
+    ...shadows.softCard,
   },
   modeContainer: {
     backgroundColor: colors.authSurfaceSoft,
@@ -216,6 +217,8 @@ const styles = StyleSheet.create({
   },
   modeButtonActive: {
     backgroundColor: colors.authSurface,
+    borderWidth: 1,
+    borderColor: colors.authBorder,
   },
   modeText: {
     color: colors.authTextSecondary,
@@ -237,7 +240,7 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderColor: colors.authBorderStrong,
-    borderRadius: radii.lg,
+    borderRadius: radii.md,
     backgroundColor: colors.authBackground,
     color: colors.authTextPrimary,
     paddingHorizontal: spacing.md,
@@ -247,11 +250,16 @@ const styles = StyleSheet.create({
   submitButton: {
     marginTop: spacing.sm,
     backgroundColor: colors.authBrand,
-    borderRadius: radii.lg,
+    borderRadius: radii.md,
     paddingVertical: 14,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: colors.authBrand,
+    borderColor: colors.authBrandStrong,
+    shadowColor: colors.authBrand,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.22,
+    shadowRadius: 16,
+    elevation: 4,
   },
   submitButtonDisabled: {
     opacity: 0.5,
@@ -267,7 +275,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   demoButton: {
-    borderRadius: radii.lg,
+    borderRadius: radii.md,
     borderWidth: 1,
     borderColor: colors.authBorderStrong,
     paddingVertical: 12,

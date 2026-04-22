@@ -20,17 +20,17 @@ export function MainTabs() {
       screenOptions={{
         headerStyle: { backgroundColor: colors.authSurface },
         headerTintColor: colors.textPrimary,
-        headerTitleStyle: { fontWeight: "700" },
+        headerTitleStyle: { fontWeight: "700", letterSpacing: 0.2 },
         headerShadowVisible: true,
         tabBarStyle: {
           backgroundColor: colors.authSurface,
           borderTopColor: colors.border,
           borderTopWidth: 1,
-          height: 68,
-          paddingTop: 4,
-          paddingBottom: 8,
+          height: 70,
+          paddingTop: 6,
+          paddingBottom: 10,
         },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: "700", letterSpacing: 0.1 },
         tabBarActiveTintColor: colors.authBrand,
         tabBarInactiveTintColor: colors.authMuted,
       }}
