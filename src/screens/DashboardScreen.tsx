@@ -370,6 +370,23 @@ export function DashboardScreen() {
             </View>
           </View>
 
+          {!dismissTaxRelief && selectedCategory === "household-bills" ? (
+            <View style={styles.taxReliefCard}>
+              <View style={styles.taxReliefIcon}>
+                <Text style={styles.taxReliefIconText}>▣</Text>
+              </View>
+              <View style={styles.taxReliefBody}>
+                <Text style={styles.taxReliefTitle}>Working-from-home tax relief</Text>
+                <Text style={styles.taxReliefMeta}>
+                  You may be owed for prior tax years. Typical UK claim values range from £62 to £140.
+                </Text>
+              </View>
+              <Pressable onPress={() => setDismissTaxRelief(true)} style={styles.taxReliefDismiss}>
+                <Text style={styles.taxReliefDismissText}>×</Text>
+              </Pressable>
+            </View>
+          ) : null}
+
           <View style={styles.tabRow}>
             {CATEGORY_TABS.map((tab) => {
               const count = opportunitiesByCategory[tab.key].length;
@@ -447,22 +464,6 @@ export function DashboardScreen() {
             </View>
           )}
 
-          {!dismissTaxRelief && selectedCategory === "household-bills" ? (
-            <View style={styles.taxReliefCard}>
-              <View style={styles.taxReliefIcon}>
-                <Text style={styles.taxReliefIconText}>▣</Text>
-              </View>
-              <View style={styles.taxReliefBody}>
-                <Text style={styles.taxReliefTitle}>Working-from-home tax relief</Text>
-                <Text style={styles.taxReliefMeta}>
-                  You may be owed for prior tax years. Typical UK claim values range from £62 to £140.
-                </Text>
-              </View>
-              <Pressable onPress={() => setDismissTaxRelief(true)} style={styles.taxReliefDismiss}>
-                <Text style={styles.taxReliefDismissText}>×</Text>
-              </Pressable>
-            </View>
-          ) : null}
         </View>
       </View>
       <ProductClaimDialog
