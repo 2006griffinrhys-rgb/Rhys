@@ -98,7 +98,7 @@ export function SettingsScreen() {
         style={[styles.planButton, selected && styles.planButtonActive]}
       >
         <Text style={[styles.planButtonText, selected && styles.planButtonTextActive]}>{label}</Text>
-        <Text style={[styles.planPriceText, selected && styles.planButtonTextActive]}>{priceLabel}</Text>
+        <Text style={[styles.planPriceText, selected && styles.planPriceTextActive]}>{priceLabel}</Text>
       </Pressable>
     );
   };
@@ -392,7 +392,7 @@ const styles = StyleSheet.create({
   },
   providerChipActive: {
     borderColor: colors.primary,
-    backgroundColor: colors.infoSoft,
+    backgroundColor: colors.primarySoft,
   },
   providerChipText: {
     color: colors.textSecondary,
@@ -402,7 +402,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   providerChipTextActive: {
-    color: colors.primaryText,
+    color: colors.primary,
   },
   planButton: {
     borderWidth: 1,
@@ -414,7 +414,7 @@ const styles = StyleSheet.create({
   },
   planButtonActive: {
     borderColor: colors.primary,
-    backgroundColor: colors.infoSoft,
+    backgroundColor: colors.primarySoft,
   },
   planButtonText: {
     color: colors.textSecondary,
@@ -423,7 +423,10 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   planButtonTextActive: {
-    color: colors.primaryText,
+    color: colors.textPrimary,
+  },
+  planPriceTextActive: {
+    color: colors.textSecondary,
   },
   planPriceText: {
     color: colors.textMuted,
@@ -447,7 +450,7 @@ const styles = StyleSheet.create({
   },
   currencyButtonActive: {
     borderColor: colors.primary,
-    backgroundColor: colors.infoSoft,
+    backgroundColor: colors.primarySoft,
   },
   currencyButtonText: {
     color: colors.textSecondary,
@@ -457,7 +460,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   currencyButtonTextActive: {
-    color: colors.primaryText,
+    color: colors.primary,
   },
   ghostButtonText: {
     color: colors.textPrimary,
