@@ -41,8 +41,17 @@ import { useAuth } from "@/providers/AuthProvider";
 import { env } from "@/services/env";
 import {
   generateAndSendBillClaimEmail,
+  generateAndSendCardEscalationEmail,
+  generateAndSendClaimFollowUpEmail,
   generateAndSendProductClaimEmail,
 } from "@/services/claimLettering";
+import {
+  CLAIM_AUTOMATION_INTERVAL_MS,
+  MAX_FOLLOW_UP_ATTEMPTS,
+  computeNextFollowUpDueAt,
+  shouldEscalateToCardProvider,
+  shouldSendFollowUp,
+} from "@/services/claimAutomation";
 
 type AppDataState = {
   receipts: Receipt[];
@@ -217,6 +226,92 @@ function normalizeCurrency(input: string | undefined): SupportedCurrency {
   return SUPPORTED_CURRENCIES.includes(upper as SupportedCurrency) ? (upper as SupportedCurrency) : "GBP";
 }
 
+function detectClaimResponseStatus(claim: Claim): Claim["responseStatus"] {
+  const body = [
+    claim.generatedLetterPreview ?? "",
+    claim.escalationLetterPreview ?? "",
+    claim.issueDescription ?? "",
+  ]
+    .join(" ")
+    .toLowerCase();
+  if (!body.trim()) {
+    return claim.responseStatus ?? "waiting";
+  }
+  if (
+    body.includes("resolved") ||
+    body.includes("accepted") ||
+    body.includes("refund issued") ||
+    body.includes("replacement approved") ||
+    body.includes("settled")
+  ) {
+    return "resolved";
+  }
+  if (
+    body.includes("declined") ||
+    body.includes("rejected") ||
+    body.includes("final response")
+  ) {
+    return "declined";
+  }
+  if (
+    body.includes("need more information") ||
+    body.includes("please provide") ||
+    body.includes("awaiting your response")
+  ) {
+    return "awaiting-customer";
+  }
+  if (claim.escalationTriggeredAt) {
+    return "escalated";
+  }
+  return claim.responseStatus ?? "waiting";
+}
+
+function inferCardProviderName(
+  supplierName?: string,
+  issueDescription?: string,
+): string {
+  const text = `${supplierName ?? ""} ${issueDescription ?? ""}`.toLowerCase();
+  if (text.includes("amex") || text.includes("american express")) {
+    return "American Express";
+  }
+  if (text.includes("mastercard") || text.includes("master card")) {
+    return "Mastercard";
+  }
+  if (text.includes("visa")) {
+    return "Visa";
+  }
+  if (text.includes("monzo")) {
+    return "Monzo";
+  }
+  if (text.includes("barclay")) {
+    return "Barclays";
+  }
+  if (text.includes("lloyds")) {
+    return "Lloyds";
+  }
+  return "Card issuer";
+}
+
+function inferCardProviderEmail(cardProviderName?: string): string {
+  const provider = (cardProviderName ?? "").toLowerCase();
+  if (provider.includes("american express") || provider.includes("amex")) {
+    return "disputes@americanexpress.com";
+  }
+  if (provider.includes("visa")) {
+    return "chargebacks@visa.com";
+  }
+  if (provider.includes("mastercard")) {
+    return "chargebacks@mastercard.com";
+  }
+  if (provider.includes("barclays")) {
+    return "disputes@barclays.co.uk";
+  }
+  if (provider.includes("lloyds")) {
+    return "disputes@lloydsbanking.com";
+  }
+  return "disputes@cardissuer.example";
+}
+
 function convertCents(valueInCents: number, fromCurrency: string, toCurrency: SupportedCurrency): number {
   const from = normalizeCurrency(fromCurrency);
   const to = normalizeCurrency(toCurrency);
@@ -243,6 +338,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [lastInboxScan, setLastInboxScan] = useState<InboxScanResult | null>(null);
   const autoScanTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoScanInFlightRef = useRef(false);
+  const claimAutomationTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const claimAutomationInFlightRef = useRef(false);
 
   const loadData = useCallback(async () => {
     setError(null);
@@ -267,6 +364,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         setPreferredCurrencyState(normalizeCurrency(user.user_metadata.preferred_currency));
       }
       const snapshot = await fetchSnapshotForUser(user.id);
+      const nowIso = new Date().toISOString();
       const convertedSnapshot: AppDataState = {
         ...snapshot,
         stats: {
@@ -290,15 +388,44 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           ),
           estimatedPayoutCurrency: preferredCurrency,
         })),
-        claims: snapshot.claims.map((claim) => ({
-          ...claim,
-          estimatedPayoutCents: convertCents(
-            claim.estimatedPayoutCents,
-            claim.estimatedPayoutCurrency,
-            preferredCurrency,
-          ),
-          estimatedPayoutCurrency: preferredCurrency,
-        })),
+        claims: snapshot.claims.map((claim) => {
+          const responseStatus = detectClaimResponseStatus(claim);
+          const responseReceived =
+            responseStatus === "received" ||
+            responseStatus === "resolved" ||
+            responseStatus === "declined";
+          const cardProviderName =
+            claim.cardProviderName ??
+            claim.cardProvider ??
+            inferCardProviderName(claim.supplierName, claim.issueDescription);
+          const followUpIntervalDays = claim.followUpIntervalDays ?? 5;
+          const followUpCount = claim.followUpCount ?? claim.followUpsSent ?? 0;
+          return {
+            ...claim,
+            estimatedPayoutCents: convertCents(
+              claim.estimatedPayoutCents,
+              claim.estimatedPayoutCurrency,
+              preferredCurrency,
+            ),
+            estimatedPayoutCurrency: preferredCurrency,
+            followUpEnabled: claim.followUpEnabled ?? true,
+            followUpIntervalDays,
+            followUpCount,
+            followUpsSent: followUpCount,
+            nextFollowUpAt:
+              claim.nextFollowUpAt ??
+              computeNextFollowUpDueAt(claim.createdAt, followUpIntervalDays),
+            escalationEnabled: claim.escalationEnabled ?? true,
+            escalateAfterFollowUps:
+              claim.escalateAfterFollowUps ?? MAX_FOLLOW_UP_ATTEMPTS,
+            cardProviderName,
+            cardProvider: cardProviderName,
+            cardProviderEmail:
+              claim.cardProviderEmail ?? inferCardProviderEmail(cardProviderName),
+            responseStatus,
+            heardBackAt: claim.heardBackAt ?? (responseReceived ? nowIso : undefined),
+          };
+        }),
       };
       setState(convertedSnapshot);
     } catch (err) {
@@ -454,6 +581,19 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         supplierEmail: letter.supplierEmail,
         generatedLetterPreview: letter.letterPreview,
         emailDeliveryStatus: letter.emailStatus,
+        followUpEnabled: true,
+        followUpIntervalDays: 5,
+        followUpCount: 0,
+        nextFollowUpAt: computeNextFollowUpDueAt(undefined, 5),
+        escalationEnabled: true,
+        escalateAfterFollowUps: MAX_FOLLOW_UP_ATTEMPTS,
+        cardProvider: inferCardProviderName(input.merchant, input.reason),
+        cardProviderName: inferCardProviderName(input.merchant, input.reason),
+        cardProviderEmail: inferCardProviderEmail(
+          inferCardProviderName(input.merchant, input.reason),
+        ),
+        cardLastFour: "1001",
+        responseStatus: "waiting",
       };
       setState((current) => ({
         ...current,
@@ -507,6 +647,19 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         supplierEmail: letter.supplierEmail,
         generatedLetterPreview: letter.letterPreview,
         emailDeliveryStatus: letter.emailStatus,
+        followUpEnabled: true,
+        followUpIntervalDays: 5,
+        followUpCount: 0,
+        nextFollowUpAt: computeNextFollowUpDueAt(undefined, 5),
+        escalationEnabled: true,
+        escalateAfterFollowUps: MAX_FOLLOW_UP_ATTEMPTS,
+        cardProvider: inferCardProviderName(input.supplier, input.reason),
+        cardProviderName: inferCardProviderName(input.supplier, input.reason),
+        cardProviderEmail: inferCardProviderEmail(
+          inferCardProviderName(input.supplier, input.reason),
+        ),
+        cardLastFour: "1001",
+        responseStatus: "waiting",
       };
       setState((current) => ({
         ...current,
@@ -603,6 +756,173 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     };
   }, [inboxScanProviders, user?.id]);
 
+  const runClaimAutomation = useCallback(async () => {
+    if (!user?.id || !planFlags.chasing || claimAutomationInFlightRef.current) {
+      return;
+    }
+    claimAutomationInFlightRef.current = true;
+    try {
+      const nowIso = new Date().toISOString();
+      const nextClaims: Claim[] = [];
+      let changed = false;
+
+      for (const claim of state.claims) {
+        let nextClaim: Claim = { ...claim };
+        const inferredCardProvider =
+          nextClaim.cardProviderName ??
+          nextClaim.cardProvider ??
+          inferCardProviderName(nextClaim.supplierName, nextClaim.issueDescription);
+        const inferredCardEmail =
+          nextClaim.cardProviderEmail ?? inferCardProviderEmail(inferredCardProvider);
+
+        if (
+          nextClaim.cardProviderName !== inferredCardProvider ||
+          nextClaim.cardProvider !== inferredCardProvider ||
+          nextClaim.cardProviderEmail !== inferredCardEmail
+        ) {
+          nextClaim = {
+            ...nextClaim,
+            cardProviderName: inferredCardProvider,
+            cardProvider: inferredCardProvider,
+            cardProviderEmail: inferredCardEmail,
+          };
+          changed = true;
+        }
+
+        nextClaim.followUpEnabled = nextClaim.followUpEnabled ?? true;
+        nextClaim.followUpIntervalDays = nextClaim.followUpIntervalDays ?? 5;
+        nextClaim.followUpCount = nextClaim.followUpCount ?? nextClaim.followUpsSent ?? 0;
+        nextClaim.followUpsSent = nextClaim.followUpCount;
+        nextClaim.escalationEnabled = nextClaim.escalationEnabled ?? true;
+        nextClaim.escalateAfterFollowUps =
+          nextClaim.escalateAfterFollowUps ?? MAX_FOLLOW_UP_ATTEMPTS;
+        if (!nextClaim.nextFollowUpAt) {
+          nextClaim.nextFollowUpAt = computeNextFollowUpDueAt(
+            nextClaim.createdAt,
+            nextClaim.followUpIntervalDays,
+          );
+          changed = true;
+        }
+
+        const detectedResponseStatus = detectClaimResponseStatus(nextClaim);
+        if (detectedResponseStatus !== nextClaim.responseStatus) {
+          nextClaim.responseStatus = detectedResponseStatus;
+          changed = true;
+        }
+        const heardBack =
+          detectedResponseStatus === "received" ||
+          detectedResponseStatus === "resolved" ||
+          detectedResponseStatus === "declined";
+        if (heardBack && !nextClaim.heardBackAt) {
+          nextClaim.heardBackAt = nowIso;
+          changed = true;
+        }
+        if (detectedResponseStatus === "resolved" && nextClaim.status !== "paid") {
+          nextClaim.status = "paid";
+          changed = true;
+        }
+        if (detectedResponseStatus === "declined" && nextClaim.status !== "rejected") {
+          nextClaim.status = "rejected";
+          changed = true;
+        }
+
+        if (shouldEscalateToCardProvider(nextClaim)) {
+          const escalation = await generateAndSendCardEscalationEmail({
+            userId: user.id,
+            claimId: nextClaim.id,
+            cardProviderName: inferredCardProvider,
+            cardProviderEmail: inferredCardEmail,
+            supplierName: nextClaim.supplierName ?? "Supplier",
+            supplierEmail: nextClaim.supplierEmail ?? "support@supplier.example",
+            productName: nextClaim.productName,
+            issueDescription:
+              nextClaim.issueDescription ?? "Claim issue detail unavailable.",
+            requestedOutcome: nextClaim.requestedOutcome ?? "not-sure",
+            followUpsSent: nextClaim.followUpCount ?? 0,
+          });
+          nextClaim = {
+            ...nextClaim,
+            escalatedToCardProvider: escalation.emailStatus !== "failed",
+            escalationTriggeredAt:
+              escalation.emailStatus !== "failed"
+                ? nowIso
+                : nextClaim.escalationTriggeredAt,
+            escalationProvider: inferredCardProvider,
+            escalationEmail: inferredCardEmail,
+            escalationLetterPreview: escalation.letterPreview,
+            escalationEmailStatus: escalation.emailStatus,
+            responseStatus:
+              escalation.emailStatus !== "failed"
+                ? "escalated"
+                : nextClaim.responseStatus,
+            nextFollowUpAt:
+              escalation.emailStatus !== "failed"
+                ? undefined
+                : computeNextFollowUpDueAt(nowIso, nextClaim.followUpIntervalDays),
+          };
+          changed = true;
+        } else if (shouldSendFollowUp(nextClaim, nowIso)) {
+          const followUpNumber = (nextClaim.followUpCount ?? 0) + 1;
+          const followUp = await generateAndSendClaimFollowUpEmail({
+            userId: user.id,
+            claimKind: nextClaim.kind ?? "product",
+            claimId: nextClaim.id,
+            supplierName: nextClaim.supplierName ?? "Supplier",
+            supplierEmail: nextClaim.supplierEmail ?? "support@supplier.example",
+            productName: nextClaim.productName,
+            issueDescription:
+              nextClaim.issueDescription ?? "Claim issue detail unavailable.",
+            requestedOutcome: nextClaim.requestedOutcome ?? "not-sure",
+            followUpNumber,
+          });
+          nextClaim = {
+            ...nextClaim,
+            followUpCount:
+              followUp.emailStatus !== "failed"
+                ? followUpNumber
+                : nextClaim.followUpCount,
+            followUpsSent:
+              followUp.emailStatus !== "failed"
+                ? followUpNumber
+                : nextClaim.followUpsSent,
+            lastFollowUpAt:
+              followUp.emailStatus !== "failed" ? nowIso : nextClaim.lastFollowUpAt,
+            nextFollowUpAt: computeNextFollowUpDueAt(
+              nowIso,
+              nextClaim.followUpIntervalDays,
+            ),
+            generatedLetterPreview:
+              followUp.emailStatus !== "failed"
+                ? followUp.letterPreview
+                : nextClaim.generatedLetterPreview,
+            emailDeliveryStatus: followUp.emailStatus,
+          };
+          changed = true;
+        }
+
+        nextClaims.push(nextClaim);
+      }
+
+      if (changed) {
+        setState((current) => ({
+          ...current,
+          claims: nextClaims,
+          stats: {
+            ...current.stats,
+            claimsInProgress: nextClaims.filter(
+              (claim) =>
+                claim.status === "draft" ||
+                claim.status === "submitted" ||
+                claim.status === "processing",
+            ).length,
+          },
+        }));
+      }
+    } finally {
+      claimAutomationInFlightRef.current = false;
+    }
+  }, [state.claims, user?.id]);
+
   const claimsUsed = useMemo(() => {
     const currentMonth = toBillingCycleMonth(new Date());
     return state.claims.filter((claim) => toBillingCycleMonth(claim.createdAt) === currentMonth).length;
@@ -616,6 +936,28 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
 
   const claimLimitReached = claimsRemaining !== null && claimsRemaining <= 0;
   const planFlags = PLAN_CONFIG[userPlan].features;
+
+  useEffect(() => {
+    if (claimAutomationTimerRef.current) {
+      clearInterval(claimAutomationTimerRef.current);
+      claimAutomationTimerRef.current = null;
+    }
+    if (!user?.id || !planFlags.chasing) {
+      claimAutomationInFlightRef.current = false;
+      return;
+    }
+    void runClaimAutomation();
+    claimAutomationTimerRef.current = setInterval(() => {
+      void runClaimAutomation();
+    }, CLAIM_AUTOMATION_INTERVAL_MS);
+    return () => {
+      if (claimAutomationTimerRef.current) {
+        clearInterval(claimAutomationTimerRef.current);
+        claimAutomationTimerRef.current = null;
+      }
+      claimAutomationInFlightRef.current = false;
+    };
+  }, [planFlags.chasing, runClaimAutomation, user?.id]);
 
   const setPreferredCurrency = useCallback((currency: SupportedCurrency) => {
     setPreferredCurrencyState(normalizeCurrency(currency));

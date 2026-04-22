@@ -4,6 +4,11 @@ export const FOLLOW_UP_INTERVAL_MS = 5 * 24 * 60 * 60 * 1000;
 export const MAX_FOLLOW_UP_ATTEMPTS = 3;
 export const CLAIM_AUTOMATION_INTERVAL_MS = 60 * 1000;
 
+type CardEscalationTarget = {
+  providerName: string;
+  providerEmail: string;
+};
+
 function isClaimResolved(claim: Claim) {
   return (
     claim.status === "paid" ||
@@ -45,4 +50,30 @@ export function shouldEscalateToCardProvider(claim: Claim) {
   const followUps = claim.followUpCount ?? 0;
   const threshold = claim.escalateAfterFollowUps ?? MAX_FOLLOW_UP_ATTEMPTS;
   return followUps >= threshold;
+}
+
+export function resolveCardEscalationTarget(claim: Claim): CardEscalationTarget {
+  const raw = (claim.cardProvider ?? claim.cardProviderName ?? "").toLowerCase();
+  if (raw.includes("amex") || raw.includes("american express")) {
+    return {
+      providerName: "American Express",
+      providerEmail: "disputes@americanexpress.com",
+    };
+  }
+  if (raw.includes("visa")) {
+    return {
+      providerName: "Visa",
+      providerEmail: "disputes@visa.com",
+    };
+  }
+  if (raw.includes("mastercard")) {
+    return {
+      providerName: "Mastercard",
+      providerEmail: "disputes@mastercard.com",
+    };
+  }
+  return {
+    providerName: claim.cardProviderName ?? "American Express",
+    providerEmail: claim.cardProviderEmail ?? "disputes@americanexpress.com",
+  };
 }

@@ -13,7 +13,8 @@ export type ClaimResponseStatus =
   | "received"
   | "escalated"
   | "resolved"
-  | "awaiting-customer";
+  | "awaiting-customer"
+  | "declined";
 export type UserPlan = BillingTier;
 export type PlanType = BillingTier;
 export type EmailProviderId =
