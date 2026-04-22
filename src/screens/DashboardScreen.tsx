@@ -1,238 +1,468 @@
-import { StyleSheet, Text, View } from "react-native";
-import { Card } from "@/components/Card";
-import { EmptyState } from "@/components/EmptyState";
+import { useMemo, useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Screen } from "@/components/Screen";
-import { SectionTitle } from "@/components/SectionTitle";
-import { StatCard } from "@/components/StatCard";
 import { useAppData } from "@/providers/AppDataProvider";
-import { colors, spacing } from "@/theme/colors";
-import { formatCents, formatDate } from "@/utils/format";
+import { colors, radii, spacing } from "@/theme/colors";
+import { formatCents } from "@/utils/format";
+
+type CategoryKey =
+  | "totalValue"
+  | "underWarranty"
+  | "warrantyExpired"
+  | "safetyRecalls"
+  | "missingInfo";
+
+type QuickViewItem = {
+  id: string;
+  label: string;
+  detail: string;
+};
+
+function isOlderThanOneYear(dateLike: string | undefined): boolean {
+  if (!dateLike) return false;
+  const date = new Date(dateLike);
+  if (Number.isNaN(date.getTime())) return false;
+  const now = Date.now();
+  return now - date.getTime() > 365 * 24 * 60 * 60 * 1000;
+}
 
 export function DashboardScreen() {
   const {
-    receipts,
+    products,
     recalls,
     claims,
     stats,
     refresh,
     refreshing,
-    usingDemoData,
-    preferredCurrency,
     userPlan,
+    claimsUsed,
+    claimsRemaining,
+    preferredCurrency,
     billingInterval,
     activePlanPriceCents,
-    claimsRemaining,
-    scanEntireInbox,
-    scanningInbox,
-    lastInboxScan,
-    providerCoverageLabel,
   } = useAppData();
-  const latestReceipt = receipts[0] ?? null;
-  const latestRecall = recalls[0] ?? null;
+  const [selectedCategory, setSelectedCategory] = useState<CategoryKey>("totalValue");
+
+  const activeRecalls = recalls.filter((recall) => recall.isActive);
+  const potentialValueCents = useMemo(
+    () => activeRecalls.reduce((sum, recall) => sum + recall.estimatedPayoutCents, 0),
+    [activeRecalls],
+  );
+  const underWarranty = useMemo(
+    () => products.filter((product) => !isOlderThanOneYear(product.purchaseDate)),
+    [products],
+  );
+  const warrantyExpired = useMemo(
+    () => products.filter((product) => isOlderThanOneYear(product.purchaseDate)),
+    [products],
+  );
+  const itemsMissingInfo = useMemo(
+    () => products.filter((product) => !product.purchaseDate || !product.receiptId),
+    [products],
+  );
+
+  const categorySummary = useMemo(
+    () => [
+      {
+        key: "totalValue" as const,
+        icon: "£",
+        title: "Total value owed",
+        value: formatCents(potentialValueCents, preferredCurrency),
+        subtitle: `${claims.length} active claim item(s)`,
+      },
+      {
+        key: "underWarranty" as const,
+        icon: "W",
+        title: "Under warranty",
+        value: `${underWarranty.length} item${underWarranty.length === 1 ? "" : "s"}`,
+        subtitle: "Within 12 months of purchase",
+      },
+      {
+        key: "warrantyExpired" as const,
+        icon: "E",
+        title: "Warranty expired",
+        value: `${warrantyExpired.length} item${warrantyExpired.length === 1 ? "" : "s"}`,
+        subtitle: "Older than 12 months",
+      },
+      {
+        key: "safetyRecalls" as const,
+        icon: "R",
+        title: "Safety recalls",
+        value: `${activeRecalls.length} item${activeRecalls.length === 1 ? "" : "s"}`,
+        subtitle: activeRecalls.length > 0 ? "Potential compensation available" : "No recalls found",
+      },
+      {
+        key: "missingInfo" as const,
+        icon: "?",
+        title: "Items missing info",
+        value: `${itemsMissingInfo.length} item${itemsMissingInfo.length === 1 ? "" : "s"}`,
+        subtitle: "Missing receipt or purchase date",
+      },
+    ],
+    [activeRecalls.length, claims.length, itemsMissingInfo.length, potentialValueCents, preferredCurrency, underWarranty.length, warrantyExpired.length],
+  );
+
+  const quickView = useMemo(() => {
+    const fallback = [{ id: "none", label: "No matching items right now.", detail: "Try refreshing after your next scan." }];
+    const viewMap: Record<CategoryKey, { title: string; description: string; items: QuickViewItem[] }> = {
+      totalValue: {
+        title: "Potential money owed",
+        description: "Products and claims currently estimated for compensation.",
+        items:
+          activeRecalls.slice(0, 5).map((recall) => ({
+            id: recall.id,
+            label: recall.productName,
+            detail: formatCents(recall.estimatedPayoutCents, preferredCurrency),
+          })) || fallback,
+      },
+      underWarranty: {
+        title: "Under warranty",
+        description: "Products still likely covered by standard warranty windows.",
+        items:
+          underWarranty.slice(0, 5).map((product) => ({
+            id: product.id,
+            label: product.name,
+            detail: product.brand,
+          })) || fallback,
+      },
+      warrantyExpired: {
+        title: "Warranty expired",
+        description: "Products where warranty likely expired but recalls may still apply.",
+        items:
+          warrantyExpired.slice(0, 5).map((product) => ({
+            id: product.id,
+            label: product.name,
+            detail: product.brand,
+          })) || fallback,
+      },
+      safetyRecalls: {
+        title: "Safety recall matches",
+        description: "Open recall notices detected against tracked products.",
+        items:
+          activeRecalls.slice(0, 5).map((recall) => ({
+            id: recall.id,
+            label: recall.productName,
+            detail: recall.title,
+          })) || fallback,
+      },
+      missingInfo: {
+        title: "Missing information",
+        description: "Products that need receipt or purchase date for stronger claims.",
+        items:
+          itemsMissingInfo.slice(0, 5).map((product) => ({
+            id: product.id,
+            label: product.name,
+            detail: `${product.receiptId ? "Receipt linked" : "Missing receipt"} · ${
+              product.purchaseDate ? "Date present" : "Missing date"
+            }`,
+          })) || fallback,
+      },
+    };
+    const current = viewMap[selectedCategory];
+    return {
+      ...current,
+      items: current.items.length > 0 ? current.items : fallback,
+    };
+  }, [activeRecalls, itemsMissingInfo, preferredCurrency, selectedCategory, underWarranty, warrantyExpired]);
 
   return (
-    <Screen onRefresh={refresh} refreshing={refreshing}>
-      <View style={styles.headerRow}>
-        <Text style={styles.title}>Prooof dashboard</Text>
-        <Text style={styles.subtitle}>Track receipts, recalls, and claims in one place.</Text>
+    <Screen onRefresh={refresh} refreshing={refreshing} backgroundColor={colors.authBackground}>
+      <View style={styles.container}>
+        <View style={styles.heroCard}>
+          <Text style={styles.heroLabel}>WE FOUND</Text>
+          <Text style={styles.heroAmount}>{formatCents(potentialValueCents, preferredCurrency)}</Text>
+          <Text style={styles.heroHeadline}>in your inbox</Text>
+          <Text style={styles.heroMeta}>Across {stats.productsTracked} products tracked</Text>
+        </View>
+
+        <View style={styles.planStrip}>
+          <View style={styles.planBubble}>
+            <Text style={styles.planBubbleText}>{userPlan.toUpperCase()}</Text>
+          </View>
+          <Text style={styles.planStripMeta}>
+            {claimsRemaining === null
+              ? `${claimsUsed} claims used this month · unlimited plan`
+              : `${claimsUsed} / ${claimsUsed + claimsRemaining} claims used this month`}
+          </Text>
+          <View style={styles.upgradePill}>
+            <Text style={styles.upgradeText}>
+              {userPlan === "free"
+                ? "Upgrade"
+                : `${billingInterval === "yearly" ? "Yearly" : "Monthly"} ${formatCents(
+                    activePlanPriceCents,
+                    "GBP",
+                  )}`}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.moneyCard}>
+          <View style={styles.moneyIcon}>
+            <Text style={styles.moneyIconText}>£</Text>
+          </View>
+          <View style={styles.moneyCopy}>
+            <Text style={styles.moneyTitle}>Potential money owed</Text>
+            <Text style={styles.moneyValue}>Up to {formatCents(potentialValueCents, preferredCurrency)}</Text>
+            <Text style={styles.moneyMeta}>
+              {activeRecalls.length} item(s) may qualify for a refund or compensation under consumer law.
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.categoryGrid}>
+          {categorySummary.map((category) => {
+            const selected = selectedCategory === category.key;
+            return (
+              <Pressable
+                key={category.key}
+                onPress={() => setSelectedCategory(category.key)}
+                style={[styles.categoryCard, selected && styles.categoryCardSelected]}
+              >
+                <View style={[styles.categoryIconBubble, selected && styles.categoryIconBubbleSelected]}>
+                  <Text style={[styles.categoryIconText, selected && styles.categoryIconTextSelected]}>{category.icon}</Text>
+                </View>
+                <Text style={styles.categoryTitle}>{category.title}</Text>
+                <Text style={styles.categoryValue}>{category.value}</Text>
+                <Text style={styles.categorySubtitle}>{category.subtitle}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <View style={styles.quickViewCard}>
+          <Text style={styles.quickViewTitle}>{quickView.title}</Text>
+          <Text style={styles.quickViewDescription}>{quickView.description}</Text>
+          <View style={styles.quickItems}>
+            {quickView.items.map((item) => (
+              <View key={item.id} style={styles.quickItem}>
+                <Text style={styles.quickItemLabel}>{item.label}</Text>
+                <Text style={styles.quickItemDetail}>{item.detail}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
       </View>
-
-      {usingDemoData ? (
-        <Card>
-          <Text style={styles.demoTitle}>Demo mode is active</Text>
-          <Text style={styles.demoText}>
-            Add Supabase environment variables to connect live data from your Loveable backend.
-          </Text>
-        </Card>
-      ) : null}
-
-      <Card>
-        <Text style={styles.planLabel}>Current plan</Text>
-        <Text style={styles.planName}>
-          {userPlan === "free" ? "Free" : userPlan === "premium" ? "Premium £4.99" : "Unlimited £9.99"}
-        </Text>
-        {userPlan !== "free" ? (
-          <Text style={styles.planMeta}>
-            {billingInterval === "yearly" ? "Yearly billing (20% off): " : "Monthly billing: "}
-            {formatCents(activePlanPriceCents, "GBP")}
-          </Text>
-        ) : null}
-        <Text style={styles.planMeta}>
-          {claimsRemaining === null
-            ? "Unlimited claims this month"
-            : `${claimsRemaining} claim(s) remaining this month`}
-        </Text>
-      </Card>
-
-      <Card>
-        <Text style={styles.planLabel}>Inbox scanning</Text>
-        <Text style={styles.planMeta}>Always-on scan across linked inboxes (no cap).</Text>
-        <Text style={styles.scanMeta}>Coverage: {providerCoverageLabel}</Text>
-        {lastInboxScan ? (
-          <Text style={styles.scanMeta}>
-            Last full scan processed {lastInboxScan.scannedEmails.toLocaleString("en-GB")} emails
-          </Text>
-        ) : null}
-        <Text onPress={() => void scanEntireInbox()} style={[styles.scanCta, scanningInbox && styles.scanCtaDisabled]}>
-          {scanningInbox ? "Background scanning..." : "Trigger extra scan now"}
-        </Text>
-      </Card>
-
-      <Card>
-        <Text style={styles.spendingLabel}>Total tracked spend ({preferredCurrency})</Text>
-        <Text style={styles.statHeadline}>{formatCents(stats.totalSpendCents, preferredCurrency)}</Text>
-      </Card>
-
-      <View style={styles.statsGrid}>
-        <StatCard label="Total receipts" value={stats.receiptCount.toString()} />
-        <StatCard label="Products tracked" value={stats.productsTracked.toString()} />
-        <StatCard label="Active recalls" value={stats.activeRecalls.toString()} />
-        <StatCard label="Claims in progress" value={stats.claimsInProgress.toString()} />
-      </View>
-
-      <SectionTitle title="Latest receipt" subtitle="Recently scanned or uploaded bill" />
-      {latestReceipt ? (
-        <Card>
-          <Text style={styles.itemTitle}>{latestReceipt.merchant}</Text>
-          <Text style={styles.itemSub}>{formatDate(latestReceipt.purchaseDate)}</Text>
-          <Text style={styles.amount}>{formatCents(latestReceipt.totalCents, latestReceipt.currency)}</Text>
-        </Card>
-      ) : (
-        <EmptyState title="No receipts yet" subtitle="Connect your inbox or upload your first receipt." />
-      )}
-
-      <SectionTitle title="Latest recall" subtitle="Most recent product safety alert" />
-      {latestRecall ? (
-        <Card>
-          <Text style={styles.itemTitle}>{latestRecall.productName}</Text>
-          <Text style={styles.itemSub}>Severity: {latestRecall.severity.toUpperCase()}</Text>
-          <Text style={styles.itemMeta}>{formatDate(latestRecall.publishedAt)}</Text>
-          <Text style={styles.reason}>{latestRecall.details}</Text>
-        </Card>
-      ) : (
-        <EmptyState title="No recalls found" subtitle="Recall intelligence will appear here once products are tracked." />
-      )}
-
-      <SectionTitle title="Claims snapshot" subtitle="Current reimbursement progress" />
-      {claims.length > 0 ? (
-        claims.slice(0, 2).map((claim) => (
-          <Card key={claim.id}>
-            <Text style={styles.itemTitle}>{claim.productName}</Text>
-            <Text style={styles.itemSub}>{claim.status.toUpperCase()}</Text>
-            <Text style={styles.amount}>{formatCents(claim.estimatedPayoutCents, claim.estimatedPayoutCurrency)}</Text>
-          </Card>
-        ))
-      ) : (
-        <EmptyState title="No claims started" subtitle="When recalls are found, claim drafts will show up here." />
-      )}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  headerRow: {
-    gap: spacing.xs,
+  container: {
+    gap: spacing.md,
   },
-  title: {
-    color: colors.textPrimary,
-    fontSize: 30,
-    fontWeight: "800",
-    letterSpacing: -0.5,
+  heroCard: {
+    backgroundColor: "#FF6400",
+    borderRadius: radii.xl,
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.xl,
   },
-  subtitle: {
-    color: colors.textSecondary,
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  demoTitle: {
-    color: colors.textPrimary,
+  heroLabel: {
+    color: "#FFE7E3",
     fontSize: 13,
     fontWeight: "700",
-    textTransform: "uppercase",
     letterSpacing: 0.8,
   },
-  demoText: {
-    color: colors.warning,
-    fontSize: 14,
-    marginTop: spacing.xs,
-    lineHeight: 20,
-  },
-  planLabel: {
-    color: colors.textMuted,
-    fontSize: 12,
-    textTransform: "uppercase",
-    letterSpacing: 0.7,
-    fontWeight: "700",
-  },
-  planName: {
-    color: colors.textPrimary,
-    fontSize: 19,
+  heroAmount: {
+    marginTop: spacing.sm,
+    color: "#FFFFFF",
+    fontSize: 52,
     fontWeight: "800",
-    marginTop: spacing.xs,
+    letterSpacing: -1.4,
   },
-  planMeta: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    marginTop: spacing.xs,
-  },
-  scanCta: {
-    marginTop: spacing.md,
-    color: colors.primary,
-    fontSize: 14,
+  heroHeadline: {
+    color: "#FFF4EE",
+    fontSize: 44,
     fontWeight: "700",
-  },
-  scanMeta: {
     marginTop: spacing.xs,
-    color: colors.textMuted,
+    letterSpacing: -1,
+  },
+  heroMeta: {
+    marginTop: spacing.sm,
+    color: "#FFF0E8",
+    fontSize: 20,
+    fontWeight: "500",
+  },
+  planStrip: {
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.authBorder,
+    backgroundColor: colors.authSurface,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    alignItems: "center",
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  planBubble: {
+    borderRadius: radii.pill,
+    backgroundColor: "#FFE7EA",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+  },
+  planBubbleText: {
+    color: "#DB2340",
+    fontWeight: "700",
+    fontSize: 11,
+  },
+  planStripMeta: {
+    flex: 1,
+    color: colors.webLandingSubtext,
+    fontSize: 13,
+  },
+  upgradePill: {
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.authBorderStrong,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    backgroundColor: colors.authSurfaceSoft,
+  },
+  upgradeText: {
+    color: colors.webLandingText,
     fontSize: 12,
-  },
-  scanCtaDisabled: {
-    opacity: 0.55,
-  },
-  spendingLabel: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
     fontWeight: "700",
   },
-  statsGrid: {
+  moneyCard: {
+    borderRadius: radii.xl,
+    borderWidth: 2,
+    borderColor: "#22C67D",
+    backgroundColor: "#DEF6EA",
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    flexDirection: "row",
+    gap: spacing.md,
+    alignItems: "flex-start",
+  },
+  moneyIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: radii.pill,
+    backgroundColor: "#00BD74",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 2,
+  },
+  moneyIconText: {
+    color: "#00301B",
+    fontWeight: "800",
+    fontSize: 16,
+  },
+  moneyCopy: {
+    flex: 1,
+  },
+  moneyTitle: {
+    color: "#108A5A",
+    fontWeight: "700",
+    fontSize: 12,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  moneyValue: {
+    color: colors.webLandingText,
+    fontWeight: "800",
+    fontSize: 45,
+    marginTop: spacing.xs,
+    letterSpacing: -0.7,
+  },
+  moneyMeta: {
+    marginTop: spacing.xs,
+    color: colors.webLandingSubtext,
+    fontSize: 20,
+  },
+  categoryGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.sm,
   },
-  statHeadline: {
-    color: colors.accent,
-    fontWeight: "800",
-    fontSize: 34,
-    marginTop: spacing.xs,
-    letterSpacing: -0.6,
+  categoryCard: {
+    flexBasis: "19%",
+    minWidth: 170,
+    flexGrow: 1,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.authBorderStrong,
+    backgroundColor: colors.authSurface,
+    padding: spacing.md,
+    gap: spacing.xs,
   },
-  itemTitle: {
-    color: colors.textPrimary,
-    fontSize: 17,
+  categoryCardSelected: {
+    borderColor: colors.webLandingBrandRed,
+    backgroundColor: "#FFF6F7",
+  },
+  categoryIconBubble: {
+    width: 28,
+    height: 28,
+    borderRadius: radii.pill,
+    backgroundColor: colors.authSurfaceSoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  categoryIconBubbleSelected: {
+    backgroundColor: "#FFE1E5",
+  },
+  categoryIconText: {
+    color: colors.webLandingSubtext,
     fontWeight: "700",
-  },
-  itemSub: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    marginTop: spacing.xs,
-  },
-  itemMeta: {
-    color: colors.textSecondary,
     fontSize: 12,
-    marginTop: spacing.xs,
   },
-  reason: {
-    color: colors.textPrimary,
-    fontSize: 14,
-    lineHeight: 22,
-    marginTop: spacing.sm,
+  categoryIconTextSelected: {
+    color: colors.webLandingBrandRed,
   },
-  amount: {
-    color: colors.accent,
-    fontSize: 20,
+  categoryTitle: {
+    color: colors.webLandingSubtext,
+    fontSize: 11,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
     fontWeight: "700",
-    marginTop: spacing.sm,
+  },
+  categoryValue: {
+    color: colors.webLandingText,
+    fontSize: 34,
+    fontWeight: "800",
+    letterSpacing: -0.5,
+  },
+  categorySubtitle: {
+    color: colors.webLandingSubtext,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  quickViewCard: {
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.authBorderStrong,
+    backgroundColor: colors.authSurface,
+    padding: spacing.lg,
+    gap: spacing.sm,
+  },
+  quickViewTitle: {
+    color: colors.webLandingText,
+    fontSize: 20,
+    fontWeight: "800",
+  },
+  quickViewDescription: {
+    color: colors.webLandingSubtext,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  quickItems: {
+    gap: spacing.xs,
+  },
+  quickItem: {
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.authBorder,
+    backgroundColor: colors.authSurfaceSoft,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  quickItemLabel: {
+    color: colors.webLandingText,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  quickItemDetail: {
+    color: colors.webLandingSubtext,
+    fontSize: 12,
+    marginTop: 2,
   },
 });
