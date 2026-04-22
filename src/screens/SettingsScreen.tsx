@@ -241,7 +241,6 @@ export function SettingsScreen() {
             <Text style={styles.scanMeta}>
               Active plan price: {formatCents(activePlanPriceCents, "GBP")} {billingInterval === "yearly" ? "per year" : "per month"}
             </Text>
-            <Text style={styles.envLabel}>Downgrade behavior</Text>
             <Pressable
               style={[styles.toggleRow, keepAccessUntilPeriodEnd && styles.toggleRowActive]}
               onPress={() => setKeepAccessUntilPeriodEnd(!keepAccessUntilPeriodEnd)}
@@ -259,7 +258,7 @@ export function SettingsScreen() {
 
           <Card>
             <Text style={styles.groupTitle}>Currency</Text>
-            <Text style={styles.envLabel}>Choose your preferred local currency</Text>
+            <Text style={styles.currencySubtitle}>Choose Your Preferred Local Currency</Text>
             <View style={styles.currencyRow}>
               {CURRENCIES.map(renderCurrencyButton)}
             </View>
@@ -439,6 +438,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.xs,
+  },
+  currencySubtitle: {
+    color: colors.textMuted,
+    fontSize: 12,
+    letterSpacing: 0.3,
   },
   currencyButton: {
     borderWidth: 1,
