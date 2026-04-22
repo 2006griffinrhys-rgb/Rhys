@@ -26,6 +26,9 @@ type ClaimOpportunity = {
   recommendation: string;
   explanation: string;
   estimatedClaimCents: number;
+  subtypeLabel: string;
+  ageMonths: number;
+  withinSupplierWarranty: boolean;
 };
 
 type CategoryTab = {
@@ -33,6 +36,21 @@ type CategoryTab = {
   label: string;
   tone: ClaimCategoryTone;
 };
+
+type OpportunitySubtype =
+  | "clothing"
+  | "water"
+  | "wifi"
+  | "hotel"
+  | "energy"
+  | "mobile"
+  | "groceries"
+  | "electronics"
+  | "travel"
+  | "membership"
+  | "general-goods"
+  | "general-services"
+  | "general-bills";
 
 const CATEGORY_TABS: CategoryTab[] = [
   { key: "goods", label: "Goods", tone: "goods" },
@@ -174,25 +192,108 @@ function classifyOpportunityCategory(input: { merchant: string; category?: strin
   return { category: null, tone: null };
 }
 
-function getRecommendationForTone(tone: ClaimCategoryTone): {
+function getAgeInMonths(purchaseDate: string): number {
+  const purchaseMs = Date.parse(purchaseDate);
+  if (!Number.isFinite(purchaseMs)) return 0;
+  const ageMs = Math.max(0, Date.now() - purchaseMs);
+  const monthMs = 1000 * 60 * 60 * 24 * 30.4375;
+  return Math.max(0, Math.floor(ageMs / monthMs));
+}
+
+function resolveSubtypeFromMerchant(merchant: string, tone: ClaimCategoryTone): OpportunitySubtype {
+  const value = merchant.toLowerCase();
+  if (value.includes("water")) return "water";
+  if (value.includes("broadband") || value.includes("wifi") || value.includes("internet")) return "wifi";
+  if (
+    value.includes("hotel") ||
+    value.includes("booking") ||
+    value.includes("airbnb") ||
+    value.includes("travelodge")
+  ) {
+    return "hotel";
+  }
+  if (value.includes("gas") || value.includes("electric") || value.includes("energy")) return "energy";
+  if (value.includes("o2") || value.includes("vodafone") || value.includes("ee") || value.includes("mobile")) {
+    return "mobile";
+  }
+  if (
+    value.includes("boohoo") ||
+    value.includes("asos") ||
+    value.includes("zara") ||
+    value.includes("h&m") ||
+    value.includes("uniqlo")
+  ) {
+    return "clothing";
+  }
+  if (value.includes("tesco") || value.includes("aldi") || value.includes("sainsbury")) return "groceries";
+  if (value.includes("currys") || value.includes("apple") || value.includes("sony")) return "electronics";
+  if (value.includes("trainline") || value.includes("airways") || value.includes("uber")) return "travel";
+  if (value.includes("spotify") || value.includes("netflix") || value.includes("prime")) return "membership";
+  if (tone === "bills") return "general-bills";
+  if (tone === "services") return "general-services";
+  return "general-goods";
+}
+
+function formatSubtypeLabel(subtype: OpportunitySubtype): string {
+  if (subtype === "wifi") return "WiFi";
+  if (subtype === "general-goods") return "Goods";
+  if (subtype === "general-services") return "Service";
+  if (subtype === "general-bills") return "Bill";
+  return subtype.replace("-", " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function getSupplierWarrantyWindowMonths(subtype: OpportunitySubtype, tone: ClaimCategoryTone): number | null {
+  if (tone === "services" || tone === "bills") {
+    return null;
+  }
+  if (subtype === "electronics") return 24;
+  if (subtype === "clothing") return 12;
+  if (subtype === "general-goods") return 12;
+  if (subtype === "groceries") return 1;
+  return 12;
+}
+
+function getRecommendationForOpportunity(
+  tone: ClaimCategoryTone,
+  subtype: OpportunitySubtype,
+  purchaseDate: string,
+): {
   recommendation: string;
   explanation: string;
+  ageMonths: number;
+  withinSupplierWarranty: boolean;
 } {
-  if (tone === "services") {
+  const ageMonths = getAgeInMonths(purchaseDate);
+  const warrantyMonths = getSupplierWarrantyWindowMonths(subtype, tone);
+  const withinSupplierWarranty = warrantyMonths !== null ? ageMonths <= warrantyMonths : false;
+
+  if (tone === "goods") {
+    const warrantySnippet =
+      warrantyMonths === null
+        ? "Supplier warranty window unavailable."
+        : withinSupplierWarranty
+          ? `Likely within a typical ${warrantyMonths}-month supplier warranty window (confirm online).`
+          : `Likely outside a typical ${warrantyMonths}-month supplier warranty window (confirm online).`;
     return {
-      recommendation: "Refund or service credit opportunity",
-      explanation: "Service delivery checks can qualify you for credits, refunds, or compensation.",
+      recommendation: "Refund or repair opportunity",
+      explanation: `${ageMonths} month${ageMonths === 1 ? "" : "s"} old - ${warrantySnippet} Consumer Rights Act 2015 covers faulty goods up to 6 years.`,
+      ageMonths,
+      withinSupplierWarranty,
     };
   }
-  if (tone === "bills") {
+  if (tone === "services") {
     return {
-      recommendation: "Bill correction opportunity",
-      explanation: "Billing audits may uncover overpayments or tariff mismatch refunds.",
+      recommendation: "Service refund opportunity",
+      explanation: `${ageMonths} month${ageMonths === 1 ? "" : "s"} old - check invoice timing and service terms. Consumer Rights Act 2015 requires services to be carried out with reasonable care and skill.`,
+      ageMonths,
+      withinSupplierWarranty,
     };
   }
   return {
-    recommendation: "Refund or repair opportunity",
-    explanation: "Consumer rights can cover faulty or misdescribed goods and support a refund or repair claim.",
+    recommendation: "Bill correction opportunity",
+    explanation: `${ageMonths} month${ageMonths === 1 ? "" : "s"} old - check bill period and tariff details. UK billing rules (including back-billing protections) support fair dispute outcomes.`,
+    ageMonths,
+    withinSupplierWarranty,
   };
 }
 
@@ -245,6 +346,7 @@ export function DashboardScreen() {
   const isMobile = width < 760;
   const [selectedCategory, setSelectedCategory] = useState<ClaimCategory>("goods");
   const [activeHouseholdTipIndex, setActiveHouseholdTipIndex] = useState(0);
+  const [dismissedOpportunityIds, setDismissedOpportunityIds] = useState<string[]>([]);
   const [activeProductClaim, setActiveProductClaim] = useState<ClaimOpportunity | null>(null);
   const [activeBillClaim, setActiveBillClaim] = useState<ClaimOpportunity | null>(null);
   const [submittingClaim, setSubmittingClaim] = useState(false);
@@ -266,11 +368,16 @@ export function DashboardScreen() {
       if (!classification.category || !classification.tone) {
         continue;
       }
-      const recommendation = getRecommendationForTone(classification.tone);
+      const subtype = resolveSubtypeFromMerchant(receipt.merchant, classification.tone);
+      const recommendation = getRecommendationForOpportunity(
+        classification.tone,
+        subtype,
+        receipt.purchaseDate,
+      );
       rows.push({
         id: receipt.id,
         merchant: receipt.merchant,
-        title: `${receipt.merchant} purchase`,
+        title: `${formatSubtypeLabel(subtype)} purchase`,
         amountCents: receipt.totalCents,
         currency: receipt.currency,
         purchaseDate: receipt.purchaseDate,
@@ -281,6 +388,9 @@ export function DashboardScreen() {
         recommendation: recommendation.recommendation,
         explanation: recommendation.explanation,
         estimatedClaimCents: Math.max(300, Math.round(receipt.totalCents * 0.4)),
+        subtypeLabel: formatSubtypeLabel(subtype),
+        ageMonths: recommendation.ageMonths,
+        withinSupplierWarranty: recommendation.withinSupplierWarranty,
       });
     }
     return rows;
@@ -294,7 +404,13 @@ export function DashboardScreen() {
     };
   }, [opportunities]);
 
-  const selectedRows = opportunitiesByCategory[selectedCategory];
+  const selectedRows = useMemo(
+    () =>
+      opportunitiesByCategory[selectedCategory].filter(
+        (item) => !dismissedOpportunityIds.includes(item.id),
+      ),
+    [dismissedOpportunityIds, opportunitiesByCategory, selectedCategory],
+  );
   const allPotentialValue = useMemo(
     () => opportunities.reduce((sum, item) => sum + item.estimatedClaimCents, 0),
     [opportunities],
@@ -323,6 +439,20 @@ export function DashboardScreen() {
       return;
     }
     setActiveProductClaim(item);
+  };
+
+  const handleDeleteOpportunity = (item: ClaimOpportunity) => {
+    Alert.alert("Remove purchase bubble", "Hide this purchase bubble from your dashboard?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Remove",
+        style: "destructive",
+        onPress: () =>
+          setDismissedOpportunityIds((current) =>
+            current.includes(item.id) ? current : [...current, item.id],
+          ),
+      },
+    ]);
   };
 
   const handleSubmitProductClaim = async (payload: {
@@ -497,8 +627,17 @@ export function DashboardScreen() {
                       { borderColor: tone.cardBorder },
                     ]}
                   >
-                    <Text style={styles.opportunityMerchant}>{item.merchant.toUpperCase()}</Text>
-                    <Text style={styles.opportunityTitle}>{item.title}</Text>
+                    <View style={styles.cardHeaderRow}>
+                      <Text style={styles.companyLine}>{item.merchant}</Text>
+                      <Pressable
+                        style={styles.deleteButton}
+                        onPress={() => handleDeleteOpportunity(item)}
+                        accessibilityLabel="Delete purchase bubble"
+                      >
+                        <Text style={styles.deleteButtonText}>🗑</Text>
+                      </Pressable>
+                    </View>
+                    <Text style={styles.productLine}>{item.title}</Text>
                     <View style={styles.amountRow}>
                       <Text style={styles.opportunityAmount}>
                         {formatCents(item.amountCents, item.currency)}
@@ -506,14 +645,37 @@ export function DashboardScreen() {
                       <Text style={styles.opportunityDate}>{formatDate(item.purchaseDate)}</Text>
                     </View>
                     <View style={styles.metaBubbleRow}>
-                      <View style={[styles.metaBubble, { backgroundColor: tone.bubbleBackground }]}>
-                        <Text style={[styles.metaBubbleText, { color: tone.bubbleText }]}>{item.source}</Text>
+                      <View style={styles.companyBubble}>
+                        <Text style={styles.companyBubbleText}>{item.merchant.toLowerCase()}</Text>
                       </View>
                       <View style={[styles.metaBubble, { backgroundColor: tone.bubbleBackground }]}>
                         <Text style={[styles.metaBubbleText, { color: tone.bubbleText }]}>
-                          {item.productCategory}
+                          {item.subtypeLabel}
                         </Text>
                       </View>
+                      {item.tone === "goods" ? (
+                        <View
+                          style={[
+                            styles.metaBubble,
+                            item.withinSupplierWarranty
+                              ? styles.warrantyBubblePositive
+                              : styles.warrantyBubbleNeutral,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.metaBubbleText,
+                              item.withinSupplierWarranty
+                                ? styles.warrantyBubbleTextPositive
+                                : styles.warrantyBubbleTextNeutral,
+                            ]}
+                          >
+                            {item.withinSupplierWarranty
+                              ? "Within supplier warranty"
+                              : "Check supplier warranty"}
+                          </Text>
+                        </View>
+                      ) : null}
                     </View>
 
                     <View style={[styles.recommendationBox, { borderColor: tone.cardBorder }]}>
@@ -527,7 +689,7 @@ export function DashboardScreen() {
                     </View>
 
                     <Pressable style={styles.claimButton} onPress={() => handleStartClaim(item)}>
-                      <Text style={styles.claimButtonText}>Make a claim</Text>
+                      <Text style={styles.claimButtonText}>Start claim</Text>
                     </Pressable>
                   </View>
                 );
@@ -788,6 +950,7 @@ const styles = StyleSheet.create({
   },
   opportunityCard: {
     width: "100%",
+    maxWidth: 360,
     borderRadius: radii.lg,
     borderWidth: 1,
     backgroundColor: colors.authSurface,
@@ -795,20 +958,35 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   opportunityCardDesktop: {
-    width: "48.8%",
+    width: "31.5%",
   },
-  opportunityMerchant: {
-    color: colors.webLandingSubtext,
-    fontSize: 11,
+  cardHeaderRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+  },
+  companyLine: {
+    flex: 1,
+    color: colors.webLandingText,
+    fontSize: 12,
     fontWeight: "700",
-    textTransform: "uppercase",
     letterSpacing: 0.3,
+    textTransform: "uppercase",
   },
-  opportunityTitle: {
+  deleteButton: {
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  deleteButtonText: {
+    fontSize: 13,
+  },
+  productLine: {
     color: colors.webLandingText,
     fontSize: 17,
     fontWeight: "800",
-    marginTop: 1,
+    lineHeight: 22,
+    marginTop: -1,
   },
   amountRow: {
     flexDirection: "row",
@@ -836,10 +1014,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: 5,
   },
+  companyBubble: {
+    borderRadius: radii.pill,
+    backgroundColor: "#101623",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 5,
+  },
+  companyBubbleText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "lowercase",
+  },
   metaBubbleText: {
     fontSize: 11,
     fontWeight: "700",
     textTransform: "capitalize",
+  },
+  warrantyBubblePositive: {
+    backgroundColor: "#E8F8EE",
+  },
+  warrantyBubbleTextPositive: {
+    color: "#0F8A4A",
+  },
+  warrantyBubbleNeutral: {
+    backgroundColor: "#EEF1F6",
+  },
+  warrantyBubbleTextNeutral: {
+    color: "#5D6777",
   },
   recommendationBox: {
     borderRadius: radii.md,
