@@ -83,25 +83,41 @@ Native mobile companion for the Prooof platform, built with Expo + React Native 
 3. Build Android AAB (Play Console):
 
    ```bash
-   npm run build:android:production
+   npm run eas:build:android
    ```
 
 4. Build iOS IPA (TestFlight/App Store Connect):
 
    ```bash
-   npm run build:ios:production
+   npm run eas:build:ios
    ```
 
-5. Optional: submit directly after build:
+5. Build preview binaries for internal QA (APK + IPA):
 
    ```bash
-   npm run submit:android
-   npm run submit:ios
+   npm run eas:build:preview
+   ```
+
+6. Optional: publish OTA updates (no full binary rebuild):
+
+   ```bash
+   npm run eas:update:preview
+   npm run eas:update:production
+   ```
+
+7. Optional: submit directly after build:
+
+   ```bash
+   npm run eas:submit:android
+   npm run eas:submit:ios
    ```
 
 Profiles are defined in `eas.json`:
-- `preview` for internal testing
-- `production` for app store submission
+- `development` -> `development` channel
+- `preview` -> `preview` channel
+- `production` -> `production` channel
+
+`runtimeVersion` is set to `appVersion` in `app.json`, so OTA updates apply safely within the same app runtime version.
 
 ## Notes
 

@@ -11,11 +11,17 @@
     "web": "expo start --web",
     "lint": "eslint . --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",
+    "eas:build:dev": "eas build --platform all --profile development",
+    "eas:build:preview": "eas build --platform all --profile preview",
     "eas:build:ios": "eas build --platform ios --profile production",
     "eas:build:android": "eas build --platform android --profile production",
-    "eas:build:preview": "eas build --platform all --profile preview",
+    "eas:build:all": "eas build --platform all --profile production",
     "eas:submit:ios": "eas submit --platform ios --profile production",
-    "eas:submit:android": "eas submit --platform android --profile production"
+    "eas:submit:android": "eas submit --platform android --profile production",
+    "eas:update:dev": "eas update --branch development --message \"Dev OTA update\"",
+    "eas:update:preview": "eas update --branch preview --message \"Preview OTA update\"",
+    "eas:update:prod": "eas update --branch production --message \"Production OTA update\"",
+    "eas:channel:view": "eas channel:list"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.2.0",
