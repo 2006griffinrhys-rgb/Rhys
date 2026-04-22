@@ -1,8 +1,11 @@
 import { useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { BillClaimDialog } from "@/components/BillClaimDialog";
+import { ProductClaimDialog } from "@/components/ProductClaimDialog";
 import { Screen } from "@/components/Screen";
 import { useAppData } from "@/providers/AppDataProvider";
 import { colors, radii, spacing } from "@/theme/colors";
+import type { BillClaimOutcome, ProductClaimOutcome } from "@/types/domain";
 import { formatCents, formatDate } from "@/utils/format";
 
 type ClaimCategory = "goods" | "services" | "household-bills";
@@ -170,12 +173,16 @@ export function DashboardScreen() {
     activePlanPriceCents,
     claimLimitReached,
     claimTier,
-    createManualClaimDraft,
+    submitBillClaimWithEmail,
+    submitProductClaimWithEmail,
   } = useAppData();
   const { width } = useWindowDimensions();
   const isMobile = width < 760;
   const [selectedCategory, setSelectedCategory] = useState<ClaimCategory>("goods");
   const [dismissTaxRelief, setDismissTaxRelief] = useState(false);
+  const [activeProductClaim, setActiveProductClaim] = useState<ClaimOpportunity | null>(null);
+  const [activeBillClaim, setActiveBillClaim] = useState<ClaimOpportunity | null>(null);
+  const [submittingClaim, setSubmittingClaim] = useState(false);
 
   const opportunities = useMemo<ClaimOpportunity[]>(() => {
     const rows: ClaimOpportunity[] = [];
@@ -221,7 +228,7 @@ export function DashboardScreen() {
     [opportunities],
   );
 
-  const handleStartClaim = async (item: ClaimOpportunity) => {
+  const handleStartClaim = (item: ClaimOpportunity) => {
     if (claimLimitReached && claimTier !== "unlimited") {
       Alert.alert(
         "Claim limit reached",
@@ -229,16 +236,75 @@ export function DashboardScreen() {
       );
       return;
     }
+    if (item.category === "household-bills") {
+      setActiveBillClaim(item);
+      return;
+    }
+    setActiveProductClaim(item);
+  };
+
+  const handleSubmitProductClaim = async (payload: {
+    reason: string;
+    outcome: ProductClaimOutcome;
+  }) => {
+    if (!activeProductClaim) return;
     try {
-      await createManualClaimDraft({
-        productName: item.title,
-        estimatedPayoutCents: item.estimatedClaimCents,
-        estimatedPayoutCurrency: item.currency,
+      setSubmittingClaim(true);
+      const claim = await submitProductClaimWithEmail({
+        productName: activeProductClaim.title,
+        merchant: activeProductClaim.merchant,
+        amountCents: activeProductClaim.amountCents,
+        currency: activeProductClaim.currency,
+        purchaseDate: activeProductClaim.purchaseDate,
+        reason: payload.reason,
+        requestedOutcome: payload.outcome,
       });
-      Alert.alert("Claim started", `Claim draft created for ${item.title}.`);
+      if (claim.emailDeliveryStatus === "failed") {
+        Alert.alert(
+          "Claim saved, email failed",
+          "Your claim was created but the supplier email failed to send. Please retry shortly.",
+        );
+      } else {
+        Alert.alert("Claim submitted", `Supplier email sent for ${activeProductClaim.title}.`);
+      }
+      setActiveProductClaim(null);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not create claim draft.";
       Alert.alert("Claim failed", message);
+    } finally {
+      setSubmittingClaim(false);
+    }
+  };
+
+  const handleSubmitBillClaim = async (payload: {
+    reason: string;
+    outcome: BillClaimOutcome;
+  }) => {
+    if (!activeBillClaim) return;
+    try {
+      setSubmittingClaim(true);
+      const claim = await submitBillClaimWithEmail({
+        billReference: activeBillClaim.title,
+        supplier: activeBillClaim.merchant,
+        amountCents: activeBillClaim.amountCents,
+        currency: activeBillClaim.currency,
+        reason: payload.reason,
+        requestedOutcome: payload.outcome,
+      });
+      if (claim.emailDeliveryStatus === "failed") {
+        Alert.alert(
+          "Claim saved, email failed",
+          "Your claim was created but the supplier email failed to send. Please retry shortly.",
+        );
+      } else {
+        Alert.alert("Bill claim submitted", `Supplier email sent for ${activeBillClaim.title}.`);
+      }
+      setActiveBillClaim(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not submit bill claim.";
+      Alert.alert("Claim failed", message);
+    } finally {
+      setSubmittingClaim(false);
     }
   };
 
@@ -359,8 +425,8 @@ export function DashboardScreen() {
                       </View>
                     </View>
 
-                    <Pressable style={styles.claimButton} onPress={() => void handleStartClaim(item)}>
-                      <Text style={styles.claimButtonText}>Start claim</Text>
+                    <Pressable style={styles.claimButton} onPress={() => handleStartClaim(item)}>
+                      <Text style={styles.claimButtonText}>Make a claim</Text>
                     </Pressable>
                   </View>
                 );
@@ -389,10 +455,34 @@ export function DashboardScreen() {
               <Pressable onPress={() => setDismissTaxRelief(true)} style={styles.taxReliefDismiss}>
                 <Text style={styles.taxReliefDismissText}>×</Text>
               </Pressable>
-                </View>
-            ) : null}
+            </View>
+          ) : null}
         </View>
       </View>
+      <ProductClaimDialog
+        visible={activeProductClaim !== null}
+        opportunity={activeProductClaim}
+        submitting={submittingClaim}
+        onClose={() => setActiveProductClaim(null)}
+        onSubmit={handleSubmitProductClaim}
+      />
+      <BillClaimDialog
+        visible={activeBillClaim !== null}
+        opportunity={
+          activeBillClaim
+            ? {
+                id: activeBillClaim.id,
+                title: activeBillClaim.title,
+                supplier: activeBillClaim.merchant,
+                amountCents: activeBillClaim.amountCents,
+                currency: activeBillClaim.currency,
+              }
+            : null
+        }
+        submitting={submittingClaim}
+        onClose={() => setActiveBillClaim(null)}
+        onSubmit={handleSubmitBillClaim}
+      />
     </Screen>
   );
 }

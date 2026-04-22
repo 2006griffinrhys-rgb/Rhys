@@ -2,12 +2,16 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type {
   BillingInterval,
   BillingTier,
+  BillClaimOutcome,
   Claim,
+  ClaimKind,
+  ClaimOutcome,
   DashboardStats,
   EmailProviderId,
   InboxScanResult,
   PlanFeatures,
   PlanPricing,
+  ProductClaimOutcome,
   Product,
   Recall,
   Receipt,
@@ -35,6 +39,10 @@ import {
 } from "@/services/billing";
 import { useAuth } from "@/providers/AuthProvider";
 import { env } from "@/services/env";
+import {
+  generateAndSendBillClaimEmail,
+  generateAndSendProductClaimEmail,
+} from "@/services/claimLettering";
 
 type AppDataState = {
   receipts: Receipt[];
@@ -87,7 +95,32 @@ type AppDataContextValue = AppDataState & {
     productName: string;
     estimatedPayoutCents: number;
     estimatedPayoutCurrency: string;
+    issueDescription?: string;
+    claimKind?: ClaimKind;
+    requestedOutcome?: ClaimOutcome;
+    recommendedOutcome?: ClaimOutcome;
+    supplierName?: string;
+    supplierEmail?: string;
+    generatedLetterPreview?: string;
+    emailDeliveryStatus?: "queued" | "sent" | "failed";
   }) => Promise<void>;
+  submitProductClaimWithEmail: (input: {
+    productName: string;
+    merchant: string;
+    amountCents: number;
+    currency: string;
+    purchaseDate: string;
+    reason: string;
+    requestedOutcome: ProductClaimOutcome;
+  }) => Promise<Claim>;
+  submitBillClaimWithEmail: (input: {
+    billReference: string;
+    supplier: string;
+    amountCents: number;
+    currency: string;
+    reason: string;
+    requestedOutcome: BillClaimOutcome;
+  }) => Promise<Claim>;
 };
 
 const EMPTY_STATS: DashboardStats = {
@@ -327,6 +360,14 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       productName: string;
       estimatedPayoutCents: number;
       estimatedPayoutCurrency: string;
+      issueDescription?: string;
+      claimKind?: ClaimKind;
+      requestedOutcome?: ClaimOutcome;
+      recommendedOutcome?: ClaimOutcome;
+      supplierName?: string;
+      supplierEmail?: string;
+      generatedLetterPreview?: string;
+      emailDeliveryStatus?: "queued" | "sent" | "failed";
     }) => {
       const planConfig = PLAN_CONFIG[userPlan];
       const currentMonth = toBillingCycleMonth(new Date());
@@ -349,6 +390,14 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         createdAt: new Date().toISOString(),
         estimatedPayoutCents: Math.max(0, Math.round(input.estimatedPayoutCents)),
         estimatedPayoutCurrency: input.estimatedPayoutCurrency,
+        kind: input.claimKind ?? "product",
+        requestedOutcome: input.requestedOutcome,
+        recommendedOutcome: input.recommendedOutcome,
+        issueDescription: input.issueDescription,
+        supplierName: input.supplierName,
+        supplierEmail: input.supplierEmail,
+        generatedLetterPreview: input.generatedLetterPreview,
+        emailDeliveryStatus: input.emailDeliveryStatus,
       };
       setState((current) => ({
         ...current,
@@ -360,6 +409,110 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       }));
     },
     [state.claims, userPlan],
+  );
+
+  const submitProductClaimWithEmail = useCallback(
+    async (input: {
+      productName: string;
+      merchant: string;
+      amountCents: number;
+      currency: string;
+      purchaseDate: string;
+      reason: string;
+      requestedOutcome: ProductClaimOutcome;
+    }) => {
+      if (!user?.id) {
+        throw new Error("Sign in before creating claims.");
+      }
+      const letter = await generateAndSendProductClaimEmail({
+        userId: user.id,
+        merchant: input.merchant,
+        productName: input.productName,
+        amountCents: input.amountCents,
+        currency: input.currency,
+        purchaseDate: input.purchaseDate,
+        userReason: input.reason,
+        requestedOutcome: input.requestedOutcome,
+      });
+      const claim: Claim = {
+        id: `product-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        recallId: `product-${Date.now()}`,
+        productName: input.productName,
+        status: letter.emailStatus === "failed" ? "rejected" : "submitted",
+        createdAt: new Date().toISOString(),
+        estimatedPayoutCents: Math.max(0, Math.round(input.amountCents * 0.4)),
+        estimatedPayoutCurrency: input.currency,
+        kind: "product",
+        requestedOutcome: letter.requestedOutcome,
+        recommendedOutcome: letter.recommendedOutcome,
+        issueDescription: input.reason,
+        supplierName: letter.supplierName,
+        supplierEmail: letter.supplierEmail,
+        generatedLetterPreview: letter.letterPreview,
+        emailDeliveryStatus: letter.emailStatus,
+      };
+      setState((current) => ({
+        ...current,
+        claims: [claim, ...current.claims],
+        stats: {
+          ...current.stats,
+          claimsInProgress: claim.status === "rejected" ? current.stats.claimsInProgress : current.stats.claimsInProgress + 1,
+        },
+      }));
+      return claim;
+    },
+    [state.claims, user?.id, userPlan],
+  );
+
+  const submitBillClaimWithEmail = useCallback(
+    async (input: {
+      billReference: string;
+      supplier: string;
+      amountCents: number;
+      currency: string;
+      reason: string;
+      requestedOutcome: BillClaimOutcome;
+    }) => {
+      if (!user?.id) {
+        throw new Error("Sign in before creating claims.");
+      }
+      const letter = await generateAndSendBillClaimEmail({
+        userId: user.id,
+        supplier: input.supplier,
+        billReference: input.billReference,
+        amountCents: input.amountCents,
+        currency: input.currency,
+        userReason: input.reason,
+        requestedOutcome: input.requestedOutcome,
+      });
+      const claim: Claim = {
+        id: `bill-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        recallId: `bill-${Date.now()}`,
+        productName: input.billReference,
+        status: letter.emailStatus === "failed" ? "rejected" : "submitted",
+        createdAt: new Date().toISOString(),
+        estimatedPayoutCents: Math.max(0, Math.round(input.amountCents)),
+        estimatedPayoutCurrency: input.currency,
+        kind: "bill",
+        requestedOutcome: letter.requestedOutcome,
+        recommendedOutcome: letter.recommendedOutcome,
+        issueDescription: input.reason,
+        supplierName: letter.supplierName,
+        supplierEmail: letter.supplierEmail,
+        generatedLetterPreview: letter.letterPreview,
+        emailDeliveryStatus: letter.emailStatus,
+      };
+      setState((current) => ({
+        ...current,
+        claims: [claim, ...current.claims],
+        stats: {
+          ...current.stats,
+          claimsInProgress: claim.status === "rejected" ? current.stats.claimsInProgress : current.stats.claimsInProgress + 1,
+        },
+      }));
+      return claim;
+    },
+    [state.claims, user?.id, userPlan],
   );
 
   const runInboxScan = useCallback(async (providers?: EmailProviderId[]) => {
@@ -582,6 +735,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       scheduledDowngradeAt,
       createClaimForRecall: createClaimForRecallAction,
       createManualClaimDraft,
+      submitProductClaimWithEmail,
+      submitBillClaimWithEmail,
     }),
     [
       state,
@@ -615,6 +770,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       scheduledDowngradeAt,
       createClaimForRecallAction,
       createManualClaimDraft,
+      submitProductClaimWithEmail,
+      submitBillClaimWithEmail,
     ],
   );
 

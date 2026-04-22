@@ -4,6 +4,10 @@ export type RecallSeverity = "low" | "medium" | "high";
 export type BillingTier = "free" | "premium" | "unlimited";
 export type BillingInterval = "monthly" | "yearly";
 export type SupportedCurrency = "GBP" | "USD" | "EUR" | "CAD" | "AUD" | "JPY";
+export type ClaimKind = "product" | "bill";
+export type ProductClaimOutcome = "refund" | "replacement-exchange" | "repair" | "not-sure";
+export type BillClaimOutcome = "waive-charges" | "exit-contract" | "itemised-breakdown" | "not-sure";
+export type ClaimOutcome = ProductClaimOutcome | BillClaimOutcome;
 export type UserPlan = BillingTier;
 export type PlanType = BillingTier;
 export type EmailProviderId =
@@ -60,6 +64,14 @@ export type Claim = {
   createdAt: string;
   estimatedPayoutCents: number;
   estimatedPayoutCurrency: string;
+  kind?: ClaimKind;
+  requestedOutcome?: ClaimOutcome;
+  recommendedOutcome?: ClaimOutcome;
+  issueDescription?: string;
+  supplierName?: string;
+  supplierEmail?: string;
+  generatedLetterPreview?: string;
+  emailDeliveryStatus?: "queued" | "sent" | "failed";
 };
 
 export type AppSnapshot = {
