@@ -232,21 +232,17 @@ export function DashboardScreen() {
   const { width } = useWindowDimensions();
   const isMobile = width < 760;
   const [selectedCategory, setSelectedCategory] = useState<ClaimCategory>("goods");
-  const [dismissHouseholdTips, setDismissHouseholdTips] = useState(false);
   const [activeHouseholdTipIndex, setActiveHouseholdTipIndex] = useState(0);
   const [activeProductClaim, setActiveProductClaim] = useState<ClaimOpportunity | null>(null);
   const [activeBillClaim, setActiveBillClaim] = useState<ClaimOpportunity | null>(null);
   const [submittingClaim, setSubmittingClaim] = useState(false);
 
   useEffect(() => {
-    if (dismissHouseholdTips) {
-      return;
-    }
     const timer = setInterval(() => {
       setActiveHouseholdTipIndex((current) => (current + 1) % HOUSEHOLD_TIPS.length);
     }, 20_000);
     return () => clearInterval(timer);
-  }, [dismissHouseholdTips]);
+  }, []);
 
   const opportunities = useMemo<ClaimOpportunity[]>(() => {
     const rows: ClaimOpportunity[] = [];
@@ -433,25 +429,20 @@ export function DashboardScreen() {
             </View>
           </View>
 
-          {!dismissHouseholdTips ? (
-            <View style={styles.taxReliefCard}>
-              <View style={styles.taxReliefIcon}>
-                <Text style={styles.taxReliefIconText}>i</Text>
-              </View>
-              <View style={styles.taxReliefBody}>
-                <Text style={styles.taxReliefLabel}>
-                  UK household tip {activeHouseholdTipIndex + 1} of {HOUSEHOLD_TIPS.length}
-                </Text>
-                <Text style={styles.taxReliefTitle}>{activeHouseholdTip.title}</Text>
-                <Text style={styles.taxReliefMeta}>
-                  {activeHouseholdTip.detail}
-                </Text>
-              </View>
-              <Pressable onPress={() => setDismissHouseholdTips(true)} style={styles.taxReliefDismiss}>
-                <Text style={styles.taxReliefDismissText}>×</Text>
-              </Pressable>
+          <View style={styles.taxReliefCard}>
+            <View style={styles.taxReliefIcon}>
+              <Text style={styles.taxReliefIconText}>i</Text>
             </View>
-          ) : null}
+            <View style={styles.taxReliefBody}>
+              <Text style={styles.taxReliefLabel}>
+                UK household tip {activeHouseholdTipIndex + 1} of {HOUSEHOLD_TIPS.length}
+              </Text>
+              <Text style={styles.taxReliefTitle}>{activeHouseholdTip.title}</Text>
+              <Text style={styles.taxReliefMeta}>
+                {activeHouseholdTip.detail}
+              </Text>
+            </View>
+          </View>
 
           <View style={styles.tabRow}>
             {CATEGORY_TABS.map((tab) => {
@@ -940,14 +931,5 @@ const styles = StyleSheet.create({
     color: colors.webLandingSubtext,
     fontSize: 12,
     lineHeight: 17,
-  },
-  taxReliefDismiss: {
-    paddingHorizontal: spacing.xs,
-    paddingVertical: 2,
-  },
-  taxReliefDismissText: {
-    color: "#8C95A4",
-    fontSize: 16,
-    fontWeight: "700",
   },
 });
