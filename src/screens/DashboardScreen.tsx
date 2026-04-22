@@ -12,6 +12,8 @@ type CategoryKey =
   | "safetyRecalls"
   | "missingInfo";
 
+type CategoryTone = "neutral" | "success" | "danger" | "warning";
+
 type QuickViewItem = {
   id: string;
   label: string;
@@ -42,6 +44,7 @@ export function DashboardScreen() {
     activePlanPriceCents,
   } = useAppData();
   const [selectedCategory, setSelectedCategory] = useState<CategoryKey>("totalValue");
+  const [dismissTaxRelief, setDismissTaxRelief] = useState(false);
 
   const activeRecalls = recalls.filter((recall) => recall.isActive);
   const potentialValueCents = useMemo(
@@ -66,27 +69,31 @@ export function DashboardScreen() {
       {
         key: "totalValue" as const,
         icon: "£",
+        tone: "neutral" as CategoryTone,
         title: "Total value owed",
         value: formatCents(potentialValueCents, preferredCurrency),
         subtitle: `${claims.length} active claim item(s)`,
       },
       {
         key: "underWarranty" as const,
-        icon: "W",
+        icon: "✓",
+        tone: "success" as CategoryTone,
         title: "Under warranty",
         value: `${underWarranty.length} item${underWarranty.length === 1 ? "" : "s"}`,
         subtitle: "Within 12 months of purchase",
       },
       {
         key: "warrantyExpired" as const,
-        icon: "E",
+        icon: "!",
+        tone: "danger" as CategoryTone,
         title: "Warranty expired",
         value: `${warrantyExpired.length} item${warrantyExpired.length === 1 ? "" : "s"}`,
         subtitle: "Older than 12 months",
       },
       {
         key: "safetyRecalls" as const,
-        icon: "R",
+        icon: "△",
+        tone: "warning" as CategoryTone,
         title: "Safety recalls",
         value: `${activeRecalls.length} item${activeRecalls.length === 1 ? "" : "s"}`,
         subtitle: activeRecalls.length > 0 ? "Potential compensation available" : "No recalls found",
@@ -94,6 +101,7 @@ export function DashboardScreen() {
       {
         key: "missingInfo" as const,
         icon: "?",
+        tone: "neutral" as CategoryTone,
         title: "Items missing info",
         value: `${itemsMissingInfo.length} item${itemsMissingInfo.length === 1 ? "" : "s"}`,
         subtitle: "Missing receipt or purchase date",
@@ -170,8 +178,10 @@ export function DashboardScreen() {
       <View style={styles.container}>
         <View style={styles.heroCard}>
           <Text style={styles.heroLabel}>WE FOUND</Text>
-          <Text style={styles.heroAmount}>{formatCents(potentialValueCents, preferredCurrency)}</Text>
-          <Text style={styles.heroHeadline}>in your inbox</Text>
+          <View style={styles.heroMainRow}>
+            <Text style={styles.heroAmount}>{formatCents(potentialValueCents, preferredCurrency)}</Text>
+            <Text style={styles.heroHeadline}>in your inbox</Text>
+          </View>
           <Text style={styles.heroMeta}>Across {stats.productsTracked} products tracked</Text>
         </View>
 
@@ -218,8 +228,26 @@ export function DashboardScreen() {
                 onPress={() => setSelectedCategory(category.key)}
                 style={[styles.categoryCard, selected && styles.categoryCardSelected]}
               >
-                <View style={[styles.categoryIconBubble, selected && styles.categoryIconBubbleSelected]}>
-                  <Text style={[styles.categoryIconText, selected && styles.categoryIconTextSelected]}>{category.icon}</Text>
+                <View
+                  style={[
+                    styles.categoryIconBubble,
+                    category.tone === "success" && styles.categoryIconSuccess,
+                    category.tone === "danger" && styles.categoryIconDanger,
+                    category.tone === "warning" && styles.categoryIconWarning,
+                    selected && styles.categoryIconBubbleSelected,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.categoryIconText,
+                      category.tone === "success" && styles.categoryIconTextSuccess,
+                      category.tone === "danger" && styles.categoryIconTextDanger,
+                      category.tone === "warning" && styles.categoryIconTextWarning,
+                      selected && styles.categoryIconTextSelected,
+                    ]}
+                  >
+                    {category.icon}
+                  </Text>
                 </View>
                 <Text style={styles.categoryTitle}>{category.title}</Text>
                 <Text style={styles.categoryValue}>{category.value}</Text>
@@ -241,6 +269,23 @@ export function DashboardScreen() {
             ))}
           </View>
         </View>
+
+        {!dismissTaxRelief ? (
+          <View style={styles.taxReliefCard}>
+            <View style={styles.taxReliefIcon}>
+              <Text style={styles.taxReliefIconText}>▣</Text>
+            </View>
+            <View style={styles.taxReliefBody}>
+              <Text style={styles.taxReliefTitle}>Working-from-home tax relief</Text>
+              <Text style={styles.taxReliefMeta}>
+                You may be owed for prior tax years. Typical UK claim values range from £62 to £140.
+              </Text>
+            </View>
+            <Pressable onPress={() => setDismissTaxRelief(true)} style={styles.taxReliefDismiss}>
+              <Text style={styles.taxReliefDismissText}>×</Text>
+            </Pressable>
+          </View>
+        ) : null}
       </View>
     </Screen>
   );
@@ -253,7 +298,7 @@ const styles = StyleSheet.create({
   heroCard: {
     backgroundColor: "#FF6400",
     borderRadius: radii.xl,
-    paddingVertical: spacing.xl,
+    paddingVertical: spacing.lg,
     paddingHorizontal: spacing.xl,
   },
   heroLabel: {
@@ -262,18 +307,24 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: 0.8,
   },
-  heroAmount: {
+  heroMainRow: {
     marginTop: spacing.sm,
+    flexDirection: "row",
+    alignItems: "flex-end",
+    flexWrap: "wrap",
+    columnGap: spacing.sm,
+  },
+  heroAmount: {
     color: "#FFFFFF",
-    fontSize: 52,
+    fontSize: 54,
     fontWeight: "800",
     letterSpacing: -1.4,
   },
   heroHeadline: {
     color: "#FFF4EE",
-    fontSize: 44,
+    fontSize: 48,
     fontWeight: "700",
-    marginTop: spacing.xs,
+    lineHeight: 56,
     letterSpacing: -1,
   },
   heroMeta: {
@@ -375,7 +426,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   categoryCard: {
-    flexBasis: "19%",
+    flexBasis: "18%",
     minWidth: 170,
     flexGrow: 1,
     borderRadius: radii.lg,
@@ -397,6 +448,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  categoryIconSuccess: {
+    backgroundColor: "#DFF7ED",
+  },
+  categoryIconDanger: {
+    backgroundColor: "#FFE7EA",
+  },
+  categoryIconWarning: {
+    backgroundColor: "#FFF1DB",
+  },
   categoryIconBubbleSelected: {
     backgroundColor: "#FFE1E5",
   },
@@ -404,6 +464,15 @@ const styles = StyleSheet.create({
     color: colors.webLandingSubtext,
     fontWeight: "700",
     fontSize: 12,
+  },
+  categoryIconTextSuccess: {
+    color: "#0B9F67",
+  },
+  categoryIconTextDanger: {
+    color: "#DB2340",
+  },
+  categoryIconTextWarning: {
+    color: "#D47B16",
   },
   categoryIconTextSelected: {
     color: colors.webLandingBrandRed,
@@ -464,5 +533,53 @@ const styles = StyleSheet.create({
     color: colors.webLandingSubtext,
     fontSize: 12,
     marginTop: 2,
+  },
+  taxReliefCard: {
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.authBorderStrong,
+    backgroundColor: colors.authSurface,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+  },
+  taxReliefIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: radii.pill,
+    backgroundColor: "#E8ECF4",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 2,
+  },
+  taxReliefIconText: {
+    color: "#475063",
+    fontWeight: "700",
+    fontSize: 12,
+  },
+  taxReliefBody: {
+    flex: 1,
+    gap: 2,
+  },
+  taxReliefTitle: {
+    color: colors.webLandingText,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  taxReliefMeta: {
+    color: colors.webLandingSubtext,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  taxReliefDismiss: {
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
+  },
+  taxReliefDismissText: {
+    color: "#8C95A4",
+    fontSize: 16,
+    fontWeight: "700",
   },
 });
