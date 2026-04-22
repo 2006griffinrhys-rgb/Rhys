@@ -59,29 +59,11 @@ export function AuthScreen() {
               </View>
               <Text style={styles.logoText}>Prooof</Text>
             </View>
-            <View style={styles.topLinks}>
-              <Text style={styles.topLink}>Install</Text>
-              <Text style={styles.topLink}>Sign in</Text>
-            </View>
           </View>
 
           <View style={styles.hero}>
-            <Text style={styles.badge}>Chrome extension · Free during beta</Text>
             <Text style={styles.heroHeadlinePrimary}>Every receipt,</Text>
             <Text style={styles.heroHeadlineAccent}>automatically saved.</Text>
-            <Text style={styles.subtitle}>
-              Install Prooof for Chrome. Open Gmail or Outlook like you normally do and we securely scan your email for
-              purchases, detect money you're owed and help you claim it.
-            </Text>
-            <View style={styles.heroCtas}>
-              <View style={styles.heroPrimaryCta}>
-                <Text style={styles.heroPrimaryText}>Install for Chrome</Text>
-              </View>
-              <View style={styles.heroSecondaryCta}>
-                <Text style={styles.heroSecondaryText}>Create account</Text>
-              </View>
-            </View>
-            <Text style={styles.heroMeta}>Works with Gmail, Outlook.com & Outlook 365 · No card required</Text>
           </View>
 
           <View style={styles.authCard}>
@@ -188,33 +170,12 @@ const styles = StyleSheet.create({
     fontSize: 27,
     fontWeight: "700",
   },
-  topLinks: {
-    flexDirection: "row",
-    gap: spacing.lg,
-  },
-  topLink: {
-    color: colors.authTextSecondary,
-    fontSize: 14,
-    fontWeight: "600",
-  },
   hero: {
     alignItems: "center",
-    gap: spacing.sm,
+    gap: spacing.xs,
     marginBottom: spacing.md,
   },
-  badge: {
-    color: colors.authTextSecondary,
-    fontSize: 13,
-    fontWeight: "600",
-    borderWidth: 1,
-    borderColor: colors.authBorder,
-    borderRadius: radii.pill,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    backgroundColor: colors.authSurface,
-  },
   heroHeadlinePrimary: {
-    marginTop: spacing.sm,
     color: colors.authTextPrimary,
     fontSize: 58,
     fontWeight: "800",
@@ -226,49 +187,6 @@ const styles = StyleSheet.create({
     fontSize: 58,
     fontWeight: "800",
     letterSpacing: -1.2,
-    textAlign: "center",
-  },
-  subtitle: {
-    color: colors.authTextSecondary,
-    marginTop: spacing.sm,
-    fontSize: 24,
-    lineHeight: 34,
-    textAlign: "center",
-    maxWidth: 920,
-  },
-  heroCtas: {
-    marginTop: spacing.md,
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  heroPrimaryCta: {
-    backgroundColor: colors.authBrand,
-    borderRadius: radii.lg,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-  },
-  heroPrimaryText: {
-    color: colors.authSurface,
-    fontWeight: "700",
-    fontSize: 16,
-  },
-  heroSecondaryCta: {
-    borderWidth: 1,
-    borderColor: colors.authBorderStrong,
-    borderRadius: radii.lg,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.authSurface,
-  },
-  heroSecondaryText: {
-    color: colors.authTextPrimary,
-    fontWeight: "600",
-    fontSize: 16,
-  },
-  heroMeta: {
-    color: colors.authMuted,
-    marginTop: spacing.xs,
-    fontSize: 13,
     textAlign: "center",
   },
   authCard: {
