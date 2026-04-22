@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { PropsWithChildren } from "react";
 import type { Session, User } from "@supabase/supabase-js";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "@/services/supabase";
 import { env } from "@/services/env";
 
@@ -16,6 +17,7 @@ type AuthContextValue = {
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+const DEMO_AUTH_STORAGE_KEY = "prooof.demo-auth.user-email";
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<Session | null>(null);
@@ -25,11 +27,31 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     if (env.demoAuthEnabled && !env.hasSupabaseConfig) {
-      setLoading(false);
-      return;
+      let cancelled = false;
+      AsyncStorage.getItem(DEMO_AUTH_STORAGE_KEY)
+        .then((storedEmail) => {
+          if (cancelled || !storedEmail) {
+            return;
+          }
+          setIsDemoAuth(true);
+          setUser({
+            id: "demo-user",
+            email: storedEmail,
+          } as unknown as User);
+          setSession(null);
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setLoading(false);
+          }
+        });
+      return () => {
+        cancelled = true;
+      };
     }
 
     let mounted = true;
+    setLoading(true);
 
     supabase.auth
       .getSession()
@@ -68,6 +90,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
             id: "demo-user",
             email,
           } as unknown as User);
+          await AsyncStorage.setItem(DEMO_AUTH_STORAGE_KEY, email);
           return { error: null };
         }
         const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -80,6 +103,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
             id: "demo-user",
             email,
           } as unknown as User);
+          await AsyncStorage.setItem(DEMO_AUTH_STORAGE_KEY, email);
           return { error: null };
         }
         const { error } = await supabase.auth.signUp({ email, password });
@@ -90,16 +114,19 @@ export function AuthProvider({ children }: PropsWithChildren) {
           return;
         }
         setIsDemoAuth(true);
+        const email = "demo@prooof.app";
         setUser({
           id: "demo-user",
-          email: "demo@prooof.app",
+          email,
         } as unknown as User);
+        await AsyncStorage.setItem(DEMO_AUTH_STORAGE_KEY, email);
       },
       async signOut() {
         if (env.demoAuthEnabled && !env.hasSupabaseConfig) {
           setIsDemoAuth(false);
           setUser(null);
           setSession(null);
+          await AsyncStorage.removeItem(DEMO_AUTH_STORAGE_KEY);
           return;
         }
         await supabase.auth.signOut();
