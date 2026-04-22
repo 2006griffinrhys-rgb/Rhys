@@ -74,6 +74,7 @@ export const MOCK_RECALLS: Recall[] = [
     source: "UK FSA",
     isActive: true,
     estimatedPayoutCents: 2350,
+    estimatedPayoutCurrency: "GBP",
   },
   {
     id: "rec-002",
@@ -85,6 +86,7 @@ export const MOCK_RECALLS: Recall[] = [
     source: "Manufacturer Notice",
     isActive: true,
     estimatedPayoutCents: 1299,
+    estimatedPayoutCurrency: "GBP",
   },
 ];
 
@@ -96,5 +98,8 @@ export const MOCK_CLAIMS: Claim[] = [
     createdAt: "2026-04-11T13:30:00.000Z",
     status: "submitted",
     estimatedPayoutCents: 2350,
+    estimatedPayoutCurrency: "GBP",
   },
 ];
+
+export const MOCK_INBOX_SCAN_COUNT = 18246;

@@ -1,4 +1,4 @@
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Card } from "@/components/Card";
 import { EmptyState } from "@/components/EmptyState";
 import { Pill } from "@/components/Pill";
@@ -9,7 +9,20 @@ import { colors } from "@/theme/colors";
 import { formatCents, formatDate } from "@/utils/format";
 
 export function RecallsScreen() {
-  const { recalls, refresh, refreshing, createClaimForRecall } = useAppData();
+  const { recalls, refresh, refreshing, createClaimForRecall, claimLimitReached, claimTier } = useAppData();
+
+  const handleCreateClaim = async (recallId: string) => {
+    if (claimLimitReached && claimTier !== "unlimited") {
+      Alert.alert(
+        "Claim limit reached",
+        "You've reached your monthly claim limit for your current plan. Upgrade in Settings to continue filing claims.",
+      );
+      return;
+    }
+    const recall = recalls.find((item) => item.id === recallId);
+    if (!recall) return;
+    await createClaimForRecall(recall);
+  };
 
   return (
     <Screen onRefresh={refresh} refreshing={refreshing}>
@@ -36,9 +49,14 @@ export function RecallsScreen() {
               <Pill status={recall.severity === "high" ? "failed" : "pending"} />
             </View>
             <Text style={styles.itemBody}>{recall.details}</Text>
-            <TouchableOpacity onPress={() => createClaimForRecall(recall)} style={styles.claimButton}>
+            <TouchableOpacity
+              onPress={() => handleCreateClaim(recall.id)}
+              style={[styles.claimButton, claimLimitReached && claimTier !== "unlimited" && styles.claimButtonDisabled]}
+            >
               <Text style={styles.claimButtonText}>
-                Create claim ({formatCents(recall.estimatedPayoutCents)})
+                {claimLimitReached && claimTier !== "unlimited"
+                  ? "Upgrade to file claim"
+                  : `Create claim (${formatCents(recall.estimatedPayoutCents, recall.estimatedPayoutCurrency)})`}
               </Text>
             </TouchableOpacity>
           </Card>
@@ -89,5 +107,8 @@ const styles = StyleSheet.create({
     color: colors.primaryText,
     fontSize: 13,
     fontWeight: "700",
+  },
+  claimButtonDisabled: {
+    opacity: 0.65,
   },
 });

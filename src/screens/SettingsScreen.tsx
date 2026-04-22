@@ -6,12 +6,23 @@ import { colors, spacing } from "@/theme/colors";
 import { useAuth } from "@/providers/AuthProvider";
 import { useAppData } from "@/providers/AppDataProvider";
 import { getEnvSummary } from "@/services/env";
+import type { BillingTier, SupportedCurrency } from "@/types/domain";
 
 const SUPPORT_URL = "https://www.prooof.app";
+const CURRENCIES: SupportedCurrency[] = ["GBP", "USD", "EUR", "CAD", "AUD", "JPY"];
 
 export function SettingsScreen() {
   const { user, signOut, isDemoAuth } = useAuth();
-  const { refresh, refreshing } = useAppData();
+  const {
+    refresh,
+    refreshing,
+    userPlan,
+    setUserPlan,
+    preferredCurrency,
+    setPreferredCurrency,
+    runInboxScan,
+    scanningInbox,
+  } = useAppData();
   const envSummary = getEnvSummary();
 
   const handleSignOut = () => {
@@ -26,6 +37,42 @@ export function SettingsScreen() {
     if (supported) {
       await Linking.openURL(SUPPORT_URL);
     }
+  };
+
+  const handleScanInbox = async () => {
+    try {
+      await runInboxScan();
+      Alert.alert("Inbox scan started", "Scanning all emails in inbox (no cap).");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not start inbox scan.";
+      Alert.alert("Scan failed", message);
+    }
+  };
+
+  const renderPlanButton = (plan: BillingTier, label: string) => {
+    const selected = userPlan === plan;
+    return (
+      <Pressable
+        key={plan}
+        onPress={() => setUserPlan(plan)}
+        style={[styles.planButton, selected && styles.planButtonActive]}
+      >
+        <Text style={[styles.planButtonText, selected && styles.planButtonTextActive]}>{label}</Text>
+      </Pressable>
+    );
+  };
+
+  const renderCurrencyButton = (currency: SupportedCurrency) => {
+    const selected = preferredCurrency === currency;
+    return (
+      <Pressable
+        key={currency}
+        onPress={() => setPreferredCurrency(currency)}
+        style={[styles.currencyButton, selected && styles.currencyButtonActive]}
+      >
+        <Text style={[styles.currencyButtonText, selected && styles.currencyButtonTextActive]}>{currency}</Text>
+      </Pressable>
+    );
   };
 
   return (
@@ -44,6 +91,28 @@ export function SettingsScreen() {
             {refreshing ? "Refreshing..." : "Refresh data"}
           </Text>
         </Pressable>
+        <Pressable style={styles.ghostButton} onPress={handleScanInbox} disabled={scanningInbox}>
+          <Text style={styles.ghostButtonText}>
+            {scanningInbox ? "Scanning inbox..." : "Scan entire inbox (no cap)"}
+          </Text>
+        </Pressable>
+      </Card>
+
+      <Card>
+        <Text style={styles.groupTitle}>Subscription</Text>
+        <View style={styles.planGroup}>
+          {renderPlanButton("free", "Free · 5 claims/mo · no bill monitoring")}
+          {renderPlanButton("premium", "Premium £4.99 · 20 claims/mo + bill alerts + chasing")}
+          {renderPlanButton("unlimited", "Unlimited £9.99 · unlimited claims + priority")}
+        </View>
+      </Card>
+
+      <Card>
+        <Text style={styles.groupTitle}>Currency</Text>
+        <Text style={styles.envLabel}>Choose your preferred local currency</Text>
+        <View style={styles.currencyRow}>
+          {CURRENCIES.map(renderCurrencyButton)}
+        </View>
       </Card>
 
       <Card>
@@ -121,8 +190,60 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: "center",
+    marginTop: spacing.sm,
     marginBottom: spacing.sm,
     backgroundColor: colors.surface,
+  },
+  planGroup: {
+    gap: spacing.sm,
+  },
+  planButton: {
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    borderRadius: 12,
+    backgroundColor: colors.surfaceSoft,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  planButtonActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.infoSoft,
+  },
+  planButtonText: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: "600",
+  },
+  planButtonTextActive: {
+    color: colors.primaryText,
+  },
+  currencyRow: {
+    marginTop: spacing.xs,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.xs,
+  },
+  currencyButton: {
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.surfaceSoft,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  currencyButtonActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.infoSoft,
+  },
+  currencyButtonText: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.2,
+  },
+  currencyButtonTextActive: {
+    color: colors.primaryText,
   },
   ghostButtonText: {
     color: colors.textPrimary,

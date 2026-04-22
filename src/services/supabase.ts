@@ -21,3 +21,5 @@ export const supabase = env.hasSupabaseConfig
       },
     })
   : (missingEnvClient() as unknown as ReturnType<typeof createClient>);
+
+export const isSupabaseConfigured = env.hasSupabaseConfig;

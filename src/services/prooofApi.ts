@@ -1,7 +1,25 @@
 import { env } from "@/services/env";
-import { MOCK_CLAIMS, MOCK_PRODUCTS, MOCK_RECALLS, MOCK_RECEIPTS } from "@/services/mockData";
+import {
+  MOCK_CLAIMS,
+  MOCK_INBOX_SCAN_COUNT,
+  MOCK_PRODUCTS,
+  MOCK_RECALLS,
+  MOCK_RECEIPTS,
+} from "@/services/mockData";
 import { supabase } from "@/services/supabase";
-import type { AppSnapshot, Claim, ClaimStatus, DashboardStats, Product, Recall, Receipt, ReceiptStatus } from "@/types/domain";
+import type {
+  AppSnapshot,
+  Claim,
+  ClaimStatus,
+  DashboardStats,
+  Product,
+  Recall,
+  Receipt,
+  ReceiptStatus,
+  SubscriptionPlan,
+  SupportedCurrency,
+  UserPlan,
+} from "@/types/domain";
 
 type UnknownRow = Record<string, unknown>;
 
@@ -76,6 +94,7 @@ function mapClaim(row: UnknownRow): Claim {
     status: asClaimStatus(row.status),
     createdAt: asDateString(row.created_at),
     estimatedPayoutCents: Math.round(asNumber(row.estimated_payout_cents, 0)),
+    estimatedPayoutCurrency: asString(row.estimated_payout_currency, "GBP"),
   };
 }
 
@@ -93,6 +112,7 @@ function mapRecall(row: UnknownRow): Recall {
     source: asString(row.source, "Regulatory feed"),
     isActive: Boolean(row.is_active ?? true),
     estimatedPayoutCents: Math.round(asNumber(row.estimated_payout_cents, 2500)),
+    estimatedPayoutCurrency: asString(row.estimated_payout_currency, "GBP"),
   };
 }
 
@@ -162,6 +182,7 @@ export async function createClaimForRecall(userId: string, recall: Recall): Prom
       status: "submitted",
       createdAt: new Date().toISOString(),
       estimatedPayoutCents: recall.estimatedPayoutCents,
+      estimatedPayoutCurrency: recall.estimatedPayoutCurrency,
     };
   }
 
@@ -173,6 +194,7 @@ export async function createClaimForRecall(userId: string, recall: Recall): Prom
       product_name: recall.productName,
       status: "submitted",
       estimated_payout_cents: recall.estimatedPayoutCents,
+      estimated_payout_currency: recall.estimatedPayoutCurrency,
     })
     .select("*")
     .single();
@@ -235,4 +257,92 @@ export async function refreshRecallCheck(
         : product,
     ),
   };
+}
+
+export async function runUnlimitedInboxScan(userId: string): Promise<{ scanned: number }> {
+  if (!env.hasSupabaseConfig || !userId) {
+    return { scanned: MOCK_INBOX_SCAN_COUNT };
+  }
+
+  const { data, error } = await supabase.functions.invoke("scan-inbox", {
+    body: { userId, noCap: true },
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return {
+    scanned: asNumber((data as UnknownRow | null)?.scanned, 0),
+  };
+}
+
+const PLAN_CONFIGS: Record<UserPlan, SubscriptionPlan> = {
+  free: {
+    tier: "free",
+    name: "Free",
+    monthlyPriceLabel: "£0.00",
+    claimLimitPerMonth: 5,
+    features: {
+      billMonitoring: false,
+      billAlerts: false,
+      chasing: false,
+      prioritySupport: false,
+    },
+  },
+  premium: {
+    tier: "premium",
+    name: "Premium",
+    monthlyPriceLabel: "£4.99",
+    claimLimitPerMonth: 20,
+    features: {
+      billMonitoring: true,
+      billAlerts: true,
+      chasing: true,
+      prioritySupport: false,
+    },
+  },
+  unlimited: {
+    tier: "unlimited",
+    name: "Unlimited",
+    monthlyPriceLabel: "£9.99",
+    claimLimitPerMonth: null,
+    features: {
+      billMonitoring: true,
+      billAlerts: true,
+      chasing: true,
+      prioritySupport: true,
+    },
+  },
+};
+
+export function getSubscriptionPlan(plan: UserPlan): SubscriptionPlan {
+  return PLAN_CONFIGS[plan];
+}
+
+export function convertCents(
+  amountInCents: number,
+  fromCurrency: string,
+  toCurrency: SupportedCurrency,
+): number {
+  if (fromCurrency === toCurrency) return amountInCents;
+
+  const ratesToGbp: Record<string, number> = {
+    GBP: 1,
+    USD: 0.79,
+    EUR: 0.86,
+    CAD: 0.58,
+    AUD: 0.52,
+    JPY: 0.0052,
+  };
+
+  const fromRate = ratesToGbp[fromCurrency] ?? 1;
+  const toRate = ratesToGbp[toCurrency] ?? 1;
+  const amountInGbp = (amountInCents / 100) * fromRate;
+  const converted = amountInGbp / toRate;
+  return Math.round(converted * 100);
+}
+
+export function currentBillingCycleKey(date: Date): string {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }

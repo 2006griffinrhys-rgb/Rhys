@@ -9,7 +9,20 @@ import { colors, spacing } from "@/theme/colors";
 import { formatCents, formatDate } from "@/utils/format";
 
 export function DashboardScreen() {
-  const { receipts, recalls, claims, stats, refresh, refreshing, usingDemoData } = useAppData();
+  const {
+    receipts,
+    recalls,
+    claims,
+    stats,
+    refresh,
+    refreshing,
+    usingDemoData,
+    preferredCurrency,
+    userPlan,
+    claimsRemaining,
+    runInboxScan,
+    scanningInbox,
+  } = useAppData();
   const latestReceipt = receipts[0] ?? null;
   const latestRecall = recalls[0] ?? null;
 
@@ -30,8 +43,28 @@ export function DashboardScreen() {
       ) : null}
 
       <Card>
-        <Text style={styles.spendingLabel}>Total tracked spend</Text>
-        <Text style={styles.statHeadline}>{formatCents(stats.totalSpendCents)}</Text>
+        <Text style={styles.planLabel}>Current plan</Text>
+        <Text style={styles.planName}>
+          {userPlan === "free" ? "Free" : userPlan === "premium" ? "Premium £4.99" : "Unlimited £9.99"}
+        </Text>
+        <Text style={styles.planMeta}>
+          {claimsRemaining === null
+            ? "Unlimited claims this month"
+            : `${claimsRemaining} claim(s) remaining this month`}
+        </Text>
+      </Card>
+
+      <Card>
+        <Text style={styles.planLabel}>Inbox scanning</Text>
+        <Text style={styles.planMeta}>Scans every available email in linked inboxes (no cap).</Text>
+        <Text onPress={runInboxScan} style={[styles.scanCta, scanningInbox && styles.scanCtaDisabled]}>
+          {scanningInbox ? "Scanning inbox..." : "Run full inbox scan now"}
+        </Text>
+      </Card>
+
+      <Card>
+        <Text style={styles.spendingLabel}>Total tracked spend ({preferredCurrency})</Text>
+        <Text style={styles.statHeadline}>{formatCents(stats.totalSpendCents, preferredCurrency)}</Text>
       </Card>
 
       <View style={styles.statsGrid}>
@@ -70,7 +103,7 @@ export function DashboardScreen() {
           <Card key={claim.id}>
             <Text style={styles.itemTitle}>{claim.productName}</Text>
             <Text style={styles.itemSub}>{claim.status.toUpperCase()}</Text>
-            <Text style={styles.amount}>{formatCents(claim.estimatedPayoutCents)}</Text>
+            <Text style={styles.amount}>{formatCents(claim.estimatedPayoutCents, claim.estimatedPayoutCurrency)}</Text>
           </Card>
         ))
       ) : (
@@ -107,6 +140,33 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: spacing.xs,
     lineHeight: 20,
+  },
+  planLabel: {
+    color: colors.textMuted,
+    fontSize: 12,
+    textTransform: "uppercase",
+    letterSpacing: 0.7,
+    fontWeight: "700",
+  },
+  planName: {
+    color: colors.textPrimary,
+    fontSize: 19,
+    fontWeight: "800",
+    marginTop: spacing.xs,
+  },
+  planMeta: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    marginTop: spacing.xs,
+  },
+  scanCta: {
+    marginTop: spacing.md,
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  scanCtaDisabled: {
+    opacity: 0.55,
   },
   spendingLabel: {
     color: colors.textSecondary,

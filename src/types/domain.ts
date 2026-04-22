@@ -1,6 +1,10 @@
 export type ReceiptStatus = "pending" | "processed" | "failed";
 export type ClaimStatus = "draft" | "submitted" | "processing" | "paid" | "rejected";
 export type RecallSeverity = "low" | "medium" | "high";
+export type BillingTier = "free" | "premium" | "unlimited";
+export type SupportedCurrency = "GBP" | "USD" | "EUR" | "CAD" | "AUD" | "JPY";
+export type UserPlan = BillingTier;
+export type PlanType = BillingTier;
 
 export type Receipt = {
   id: string;
@@ -34,6 +38,7 @@ export type Recall = {
   source: string;
   isActive: boolean;
   estimatedPayoutCents: number;
+  estimatedPayoutCurrency: string;
 };
 
 export type Claim = {
@@ -43,6 +48,7 @@ export type Claim = {
   status: ClaimStatus;
   createdAt: string;
   estimatedPayoutCents: number;
+  estimatedPayoutCurrency: string;
 };
 
 export type AppSnapshot = {
@@ -58,4 +64,27 @@ export type DashboardStats = {
   activeRecalls: number;
   claimsInProgress: number;
   totalSpendCents: number;
+};
+
+export type PlanFeatures = {
+  billMonitoring: boolean;
+  billAlerts: boolean;
+  chasing: boolean;
+  prioritySupport: boolean;
+};
+
+export type PlanFeatureFlags = PlanFeatures;
+
+export type SubscriptionPlan = {
+  tier: BillingTier;
+  name: string;
+  monthlyPriceLabel: string;
+  claimLimitPerMonth: number | null;
+  features: PlanFeatures;
+};
+
+export type InboxScanResult = {
+  scannedEmails: number;
+  importedReceipts: Receipt[];
+  scannedAt: string;
 };

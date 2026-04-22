@@ -9,6 +9,7 @@ export const colors = {
   cardSoft: "#184683",
   cardMuted: "#20446F",
   primary: "#6FA8FF",
+  primarySoft: "#224D8D",
   primaryStrong: "#5A95F4",
   primaryBorder: "#4E84D8",
   primaryText: "#031633",
