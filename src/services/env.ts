@@ -38,7 +38,7 @@ const supabaseProjectId =
 const supportUrl =
   process.env.EXPO_PUBLIC_SUPPORT_URL ??
   extraConfig.expoConfig?.extra?.supportUrl ??
-  "https://www.prooof.app";
+  "https://prooof.live/";
 
 const stripePortalUrl =
   process.env.EXPO_PUBLIC_STRIPE_PORTAL_URL ??

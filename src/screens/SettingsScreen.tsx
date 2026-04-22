@@ -9,7 +9,7 @@ import { getEnvSummary } from "@/services/env";
 import type { BillingTier, EmailProviderId, SupportedCurrency } from "@/types/domain";
 import { formatCents, formatDate } from "@/utils/format";
 
-const SUPPORT_URL = "https://www.prooof.app";
+const SUPPORT_URL = "https://prooof.live/";
 const CURRENCIES: SupportedCurrency[] = ["GBP", "USD", "EUR", "CAD", "AUD", "JPY"];
 const BILLING_INTERVALS = [
   { id: "monthly", label: "Monthly" },
