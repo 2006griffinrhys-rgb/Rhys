@@ -63,7 +63,7 @@ export function AuthScreen() {
 
           <View style={styles.hero}>
             <Text style={styles.heroHeadlinePrimary}>Every receipt,</Text>
-            <Text style={styles.heroHeadlineAccent}>automatically saved.</Text>
+            <Text style={styles.heroHeadlineAccent}>automatically scanned.</Text>
           </View>
 
           <View style={styles.authCard}>
