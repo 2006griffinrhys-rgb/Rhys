@@ -101,6 +101,11 @@ type OpportunitySubtype =
   | "general-bills";
 
 type CategoryOverrideMap = Record<string, ClaimCategory>;
+type RecategorizeTarget = {
+  merchantKey: string;
+  merchant: string;
+  currentCategory: ClaimCategory;
+};
 
 const CATEGORY_TABS: CategoryTab[] = [
   { key: "goods", label: "Goods", tone: "goods" },
@@ -755,6 +760,7 @@ export function DashboardScreen() {
   const [activeBillClaim, setActiveBillClaim] = useState<ClaimOpportunity | null>(null);
   const [submittingClaim, setSubmittingClaim] = useState(false);
   const [categoryOverrides, setCategoryOverrides] = useState<CategoryOverrideMap>({});
+  const [recategorizeTarget, setRecategorizeTarget] = useState<RecategorizeTarget | null>(null);
   const [isUploadingReceiptImage, setIsUploadingReceiptImage] = useState(false);
   const [uploadReceiptError, setUploadReceiptError] = useState<string | null>(null);
   const [uploadReceiptSuccess, setUploadReceiptSuccess] = useState<string | null>(null);
@@ -1084,28 +1090,11 @@ export function DashboardScreen() {
   const handleRecategorizeOpportunity = (item: ClaimOpportunity) => {
     const currentCategoryLabel = CATEGORY_LABELS[item.category];
     if (Platform.OS === "web") {
-      const promptFn =
-        typeof globalThis === "object" &&
-        "prompt" in globalThis &&
-        typeof globalThis.prompt === "function"
-          ? globalThis.prompt
-          : null;
-      if (!promptFn) {
-        updateCategoryOverride(item.merchantKey, item.category);
-        return;
-      }
-      const choice = promptFn(
-        `${item.merchant} is currently in ${currentCategoryLabel}.\nChoose category:\n1 = Goods\n2 = Services\n3 = Bills`,
-        item.category === "goods" ? "1" : item.category === "services" ? "2" : "3",
-      );
-      const normalized = (choice ?? "").trim();
-      if (normalized === "1") {
-        updateCategoryOverride(item.merchantKey, "goods");
-      } else if (normalized === "2") {
-        updateCategoryOverride(item.merchantKey, "services");
-      } else if (normalized === "3") {
-        updateCategoryOverride(item.merchantKey, "household-bills");
-      }
+      setRecategorizeTarget({
+        merchantKey: item.merchantKey,
+        merchant: item.merchant,
+        currentCategory: item.category,
+      });
       return;
     }
     Alert.alert(
@@ -1608,6 +1597,68 @@ export function DashboardScreen() {
                 </View>
               ))}
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+      <Modal
+        visible={recategorizeTarget !== null}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setRecategorizeTarget(null)}
+      >
+        <View style={styles.quickViewBackdrop}>
+          <View style={styles.recategorizeModal}>
+            <Pressable
+              onPress={() => setRecategorizeTarget(null)}
+              style={styles.quickViewCloseButton}
+              accessibilityLabel="Close recategorise picker"
+            >
+              <Text style={styles.quickViewCloseText}>×</Text>
+            </Pressable>
+            <Text style={styles.recategorizeTitle}>Choose new category</Text>
+            <Text style={styles.recategorizeSubtitle}>
+              {recategorizeTarget
+                ? `${recategorizeTarget.merchant} is currently in ${CATEGORY_LABELS[recategorizeTarget.currentCategory]}.`
+                : ""}
+            </Text>
+            <View style={styles.recategorizeButtonsWrap}>
+              <Pressable
+                style={styles.recategorizeChoiceButton}
+                onPress={() => {
+                  if (!recategorizeTarget) return;
+                  updateCategoryOverride(recategorizeTarget.merchantKey, "goods");
+                  setRecategorizeTarget(null);
+                }}
+              >
+                <Text style={styles.recategorizeChoiceText}>Goods</Text>
+              </Pressable>
+              <Pressable
+                style={styles.recategorizeChoiceButton}
+                onPress={() => {
+                  if (!recategorizeTarget) return;
+                  updateCategoryOverride(recategorizeTarget.merchantKey, "services");
+                  setRecategorizeTarget(null);
+                }}
+              >
+                <Text style={styles.recategorizeChoiceText}>Services</Text>
+              </Pressable>
+              <Pressable
+                style={styles.recategorizeChoiceButton}
+                onPress={() => {
+                  if (!recategorizeTarget) return;
+                  updateCategoryOverride(recategorizeTarget.merchantKey, "household-bills");
+                  setRecategorizeTarget(null);
+                }}
+              >
+                <Text style={styles.recategorizeChoiceText}>Bills</Text>
+              </Pressable>
+            </View>
+            <Pressable
+              style={styles.recategorizeCancelButton}
+              onPress={() => setRecategorizeTarget(null)}
+            >
+              <Text style={styles.recategorizeCancelText}>Cancel</Text>
+            </Pressable>
           </View>
         </View>
       </Modal>
@@ -2243,6 +2294,60 @@ const styles = StyleSheet.create({
     borderColor: colors.authBorderStrong,
     backgroundColor: colors.authSurface,
     padding: spacing.lg,
+  },
+  recategorizeModal: {
+    width: "100%",
+    maxWidth: 480,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.authBorderStrong,
+    backgroundColor: colors.authSurface,
+    padding: spacing.lg,
+  },
+  recategorizeTitle: {
+    color: colors.webLandingText,
+    fontSize: 24,
+    fontWeight: "800",
+    letterSpacing: -0.3,
+    marginBottom: spacing.xs,
+    paddingRight: spacing.xxl,
+  },
+  recategorizeSubtitle: {
+    color: colors.webLandingSubtext,
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: spacing.md,
+  },
+  recategorizeButtonsWrap: {
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  recategorizeChoiceButton: {
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.authBorderStrong,
+    backgroundColor: "#F8FAFF",
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  recategorizeChoiceText: {
+    color: colors.webLandingText,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  recategorizeCancelButton: {
+    alignSelf: "flex-end",
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.authBorderStrong,
+    backgroundColor: colors.authSurfaceSoft,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  recategorizeCancelText: {
+    color: colors.webLandingSubtext,
+    fontSize: 12,
+    fontWeight: "700",
   },
   quickViewCloseButton: {
     position: "absolute",
