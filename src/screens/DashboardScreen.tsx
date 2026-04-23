@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useMemo, useState } from "react";
 import { Alert, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { BillClaimDialog } from "@/components/BillClaimDialog";
@@ -15,6 +16,7 @@ type ClaimCategoryTone = "goods" | "services" | "bills";
 type ClaimOpportunity = {
   id: string;
   merchant: string;
+  merchantKey: string;
   title: string;
   amountCents: number;
   currency: string;
@@ -32,6 +34,10 @@ type ClaimOpportunity = {
   withinSupplierWarranty: boolean;
   hasKnownWarranty: boolean;
   warrantyLabel?: string;
+  classificationConfidence: number;
+  classificationConfidenceLabel: "High" | "Medium" | "Low";
+  classificationSource: "override" | "scored" | "fallback";
+  classificationReason: string;
 };
 
 type CategoryTab = {
@@ -92,6 +98,8 @@ type OpportunitySubtype =
   | "general-goods"
   | "general-services"
   | "general-bills";
+
+type CategoryOverrideMap = Record<string, ClaimCategory>;
 
 const CATEGORY_TABS: CategoryTab[] = [
   { key: "goods", label: "Goods", tone: "goods" },
@@ -254,6 +262,37 @@ const BILL_KEYWORDS = [
   "tv licence",
 ];
 
+const CATEGORY_OVERRIDE_STORAGE_KEY = "prooof.dashboard.categoryOverrides";
+
+const CATEGORY_TONE_MAP: Record<ClaimCategory, ClaimCategoryTone> = {
+  goods: "goods",
+  services: "services",
+  "household-bills": "bills",
+};
+
+type CategoryClassification = {
+  category: ClaimCategory;
+  tone: ClaimCategoryTone;
+  confidence: number;
+  confidenceLabel: "High" | "Medium" | "Low";
+  source: "override" | "scored" | "fallback";
+  reason: string;
+};
+
+function normalizeMerchantKey(merchant: string): string {
+  return merchant.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function keywordMatches(base: string, keywords: string[]) {
+  return keywords.filter((keyword) => base.includes(keyword));
+}
+
+function resolveConfidenceLabel(score: number, delta: number): "High" | "Medium" | "Low" {
+  if (score >= 4 && delta >= 2) return "High";
+  if (score >= 2) return "Medium";
+  return "Low";
+}
+
 function formatMerchantBubbleLabel(merchant: string): string {
   return merchant
     .trim()
@@ -268,23 +307,76 @@ function formatMerchantBubbleLabel(merchant: string): string {
     .join(" ");
 }
 
-function classifyOpportunityCategory(input: { merchant: string; category?: string }): {
-  category: ClaimCategory | null;
-  tone: ClaimCategoryTone | null;
-} {
+function classifyOpportunityCategory(input: {
+  merchant: string;
+  category?: string;
+  overrideCategory?: ClaimCategory;
+}): CategoryClassification | null {
+  if (input.overrideCategory) {
+    return {
+      category: input.overrideCategory,
+      tone: CATEGORY_TONE_MAP[input.overrideCategory],
+      confidence: 1,
+      confidenceLabel: "High",
+      source: "override",
+      reason: "Manual category override",
+    };
+  }
+
   const base = `${input.merchant} ${input.category ?? ""}`.toLowerCase();
+  const goodsMatches = keywordMatches(base, GOODS_KEYWORDS);
+  const servicesMatches = keywordMatches(base, SERVICE_KEYWORDS);
+  const billsMatches = keywordMatches(base, BILL_KEYWORDS);
 
-  if (BILL_KEYWORDS.some((keyword) => base.includes(keyword))) {
-    return { category: "household-bills", tone: "bills" };
+  const merchant = input.merchant.toLowerCase();
+  if (merchant.includes("uber") || merchant.includes("trainline") || merchant.includes("airbnb")) {
+    servicesMatches.push("merchant-travel-pattern");
   }
-  if (SERVICE_KEYWORDS.some((keyword) => base.includes(keyword))) {
-    return { category: "services", tone: "services" };
+  if (merchant.includes("tesco") || merchant.includes("sainsbury") || merchant.includes("currys")) {
+    goodsMatches.push("merchant-retail-pattern");
   }
-  if (GOODS_KEYWORDS.some((keyword) => base.includes(keyword))) {
-    return { category: "goods", tone: "goods" };
+  if (merchant.includes("british gas") || merchant.includes("thames water") || merchant.includes("edf")) {
+    billsMatches.push("merchant-utility-pattern");
   }
 
-  return { category: null, tone: null };
+  const scoreMap: Record<ClaimCategory, number> = {
+    goods: goodsMatches.length,
+    services: servicesMatches.length,
+    "household-bills": billsMatches.length,
+  };
+  const ranked = (Object.entries(scoreMap) as [ClaimCategory, number][])
+    .sort((a, b) => b[1] - a[1]);
+  const [topCategory, topScore] = ranked[0];
+  const secondScore = ranked[1]?.[1] ?? 0;
+
+  if (topScore <= 0) {
+    return null;
+  }
+
+  // Ambiguous low-signal classifications are excluded instead of being forced.
+  if (topScore === secondScore && topScore < 3) {
+    return null;
+  }
+
+  const delta = topScore - secondScore;
+  const confidenceLabel = resolveConfidenceLabel(topScore, delta);
+  const confidence = Math.min(0.99, topScore / Math.max(1, topScore + secondScore));
+
+  const reasonList =
+    topCategory === "goods"
+      ? goodsMatches
+      : topCategory === "services"
+        ? servicesMatches
+        : billsMatches;
+
+  return {
+    category: topCategory,
+    tone: CATEGORY_TONE_MAP[topCategory],
+    confidence,
+    confidenceLabel,
+    source: "scored",
+    reason: reasonList.slice(0, 3).join(", "),
+  };
 }
 
 function getAgeInMonths(purchaseDate: string): number {
@@ -527,6 +619,7 @@ export function DashboardScreen() {
   const [activeProductClaim, setActiveProductClaim] = useState<ClaimOpportunity | null>(null);
   const [activeBillClaim, setActiveBillClaim] = useState<ClaimOpportunity | null>(null);
   const [submittingClaim, setSubmittingClaim] = useState(false);
+  const [categoryOverrides, setCategoryOverrides] = useState<CategoryOverrideMap>({});
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -535,14 +628,53 @@ export function DashboardScreen() {
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    const loadOverrides = async () => {
+      try {
+        const stored = await AsyncStorage.getItem(CATEGORY_OVERRIDE_STORAGE_KEY);
+        if (!stored || cancelled) {
+          return;
+        }
+        const parsed = JSON.parse(stored) as Record<string, unknown>;
+        const normalized: CategoryOverrideMap = {};
+        for (const [key, value] of Object.entries(parsed)) {
+          if (
+            typeof key === "string" &&
+            (value === "goods" || value === "services" || value === "household-bills")
+          ) {
+            normalized[key] = value;
+          }
+        }
+        if (!cancelled) {
+          setCategoryOverrides(normalized);
+        }
+      } catch {
+        if (!cancelled) {
+          setCategoryOverrides({});
+        }
+      }
+    };
+    void loadOverrides();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    void AsyncStorage.setItem(CATEGORY_OVERRIDE_STORAGE_KEY, JSON.stringify(categoryOverrides));
+  }, [categoryOverrides]);
+
   const opportunities = useMemo<ClaimOpportunity[]>(() => {
     const rows: ClaimOpportunity[] = [];
     for (const receipt of receipts) {
+      const merchantKey = normalizeMerchantKey(receipt.merchant);
       const classification = classifyOpportunityCategory({
         merchant: receipt.merchant,
         category: receipt.source,
+        overrideCategory: categoryOverrides[merchantKey],
       });
-      if (!classification.category || !classification.tone) {
+      if (!classification) {
         continue;
       }
       const subtype = resolveSubtypeFromMerchant(receipt.merchant, classification.tone);
@@ -562,6 +694,7 @@ export function DashboardScreen() {
       rows.push({
         id: receipt.id,
         merchant: receipt.merchant,
+        merchantKey,
         title: `${formatSubtypeLabel(subtype)} purchase`,
         amountCents: receipt.totalCents,
         currency: receipt.currency,
@@ -588,10 +721,14 @@ export function DashboardScreen() {
                 warrantySummary.knownWarrantySource,
               )
             : undefined,
+        classificationConfidence: classification.confidence,
+        classificationConfidenceLabel: classification.confidenceLabel,
+        classificationSource: classification.source,
+        classificationReason: classification.reason,
       });
     }
     return rows;
-  }, [receipts]);
+  }, [categoryOverrides, receipts]);
 
   const opportunitiesByCategory = useMemo(() => {
     return {
@@ -791,6 +928,36 @@ export function DashboardScreen() {
     setActiveHouseholdTipIndex((current) =>
       current === 0 ? HOUSEHOLD_TIPS.length - 1 : current - 1,
     );
+  };
+
+  const updateCategoryOverride = (merchantKey: string, category: ClaimCategory) => {
+    setCategoryOverrides((current) => {
+      if (current[merchantKey] === category) {
+        return current;
+      }
+      return {
+        ...current,
+        [merchantKey]: category,
+      };
+    });
+  };
+
+  const handleRecategorizeOpportunity = (item: ClaimOpportunity) => {
+    Alert.alert("Correct category", `Move ${item.merchant} to which category?`, [
+      {
+        text: "Goods",
+        onPress: () => updateCategoryOverride(item.merchantKey, "goods"),
+      },
+      {
+        text: "Services",
+        onPress: () => updateCategoryOverride(item.merchantKey, "services"),
+      },
+      {
+        text: "Bills",
+        onPress: () => updateCategoryOverride(item.merchantKey, "household-bills"),
+      },
+      { text: "Cancel", style: "cancel" },
+    ]);
   };
 
   const handleStartClaim = (item: ClaimOpportunity) => {
@@ -1128,6 +1295,21 @@ export function DashboardScreen() {
                         </View>
                       ) : null}
                     </View>
+                    <View style={styles.categoryActionRow}>
+                      <View style={styles.classificationBadge}>
+                        <Text style={styles.classificationBadgeText}>
+                          {item.classificationConfidenceLabel} confidence ·{" "}
+                          {item.classificationSource === "override" ? "manual" : "auto"}
+                        </Text>
+                      </View>
+                      <Pressable
+                        style={styles.recategorizeButton}
+                        onPress={() => handleRecategorizeOpportunity(item)}
+                      >
+                        <Text style={styles.recategorizeButtonText}>Re-categorize</Text>
+                      </Pressable>
+                    </View>
+                    <Text style={styles.classificationReasonText}>{item.classificationReason}</Text>
 
                     <View style={[styles.recommendationBox, { borderColor: tone.cardBorder }]}>
                       <View style={[styles.recommendationIcon, { backgroundColor: tone.iconBackground }]}>
@@ -1594,6 +1776,49 @@ const styles = StyleSheet.create({
     textAlignVertical: "center",
     lineHeight: 14,
     letterSpacing: 0.15,
+  },
+  classificationBadge: {
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: "#D5DDEA",
+    backgroundColor: "#F6F8FC",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 5,
+    alignSelf: "flex-start",
+  },
+  classificationBadgeText: {
+    color: "#4A5870",
+    fontSize: 10,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.35,
+  },
+  categoryActionRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 2,
+    marginBottom: 2,
+    gap: spacing.sm,
+  },
+  recategorizeButton: {
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: "#D4DCEB",
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 5,
+  },
+  recategorizeButtonText: {
+    color: "#394861",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  classificationReasonText: {
+    color: "#5A667A",
+    fontSize: 11,
+    lineHeight: 15,
+    marginTop: -2,
   },
   metaBubbleText: {
     fontSize: 11,
