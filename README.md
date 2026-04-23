@@ -207,3 +207,31 @@ Important platform note:
 - For higher reliability while app is terminated, the app also invokes a server fallback scheduler function:
   - `schedule-inbox-background-scan` (Supabase function template included under `supabase/functions/`)
   - this function should be deployed with `SUPABASE_SERVICE_ROLE_KEY` available in Supabase project secrets
+
+## Automated claim emails (live delivery)
+
+Claim generation, chasers, and card escalations all invoke the Supabase Edge Function:
+
+- `generate-claim`
+
+This function is now wired for live email delivery via Resend.
+
+Set these Supabase function secrets before deployment:
+
+- `RESEND_API_KEY` (required)
+- `CLAIM_EMAIL_FROM` (required, verified sender in Resend)
+- `CLAIM_EMAIL_REPLY_TO` (optional)
+
+Example secret setup:
+
+```bash
+supabase secrets set RESEND_API_KEY=...
+supabase secrets set CLAIM_EMAIL_FROM="claims@yourdomain.com"
+supabase secrets set CLAIM_EMAIL_REPLY_TO="support@yourdomain.com"
+```
+
+Deploy/update the function:
+
+```bash
+supabase functions deploy generate-claim
+```
