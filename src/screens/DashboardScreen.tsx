@@ -270,6 +270,12 @@ const CATEGORY_TONE_MAP: Record<ClaimCategory, ClaimCategoryTone> = {
   "household-bills": "bills",
 };
 
+const CATEGORY_LABELS: Record<ClaimCategory, string> = {
+  goods: "Goods",
+  services: "Services",
+  "household-bills": "Bills",
+};
+
 type CategoryClassification = {
   category: ClaimCategory;
   tone: ClaimCategoryTone;
@@ -943,21 +949,26 @@ export function DashboardScreen() {
   };
 
   const handleRecategorizeOpportunity = (item: ClaimOpportunity) => {
-    Alert.alert("Correct category", `Move ${item.merchant} to which category?`, [
+    const currentCategoryLabel = CATEGORY_LABELS[item.category];
+    Alert.alert(
+      "Choose new category",
+      `${item.merchant} is currently in ${currentCategoryLabel}. Where should it go?`,
+      [
       {
-        text: "Goods",
+        text: item.category === "goods" ? "✓ Goods" : "Goods",
         onPress: () => updateCategoryOverride(item.merchantKey, "goods"),
       },
       {
-        text: "Services",
+        text: item.category === "services" ? "✓ Services" : "Services",
         onPress: () => updateCategoryOverride(item.merchantKey, "services"),
       },
       {
-        text: "Bills",
+        text: item.category === "household-bills" ? "✓ Bills" : "Bills",
         onPress: () => updateCategoryOverride(item.merchantKey, "household-bills"),
       },
       { text: "Cancel", style: "cancel" },
-    ]);
+      ],
+    );
   };
 
   const handleStartClaim = (item: ClaimOpportunity) => {
