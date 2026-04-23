@@ -1029,6 +1029,31 @@ export function DashboardScreen() {
 
   const handleRecategorizeOpportunity = (item: ClaimOpportunity) => {
     const currentCategoryLabel = CATEGORY_LABELS[item.category];
+    if (Platform.OS === "web") {
+      const promptFn =
+        typeof globalThis === "object" &&
+        "prompt" in globalThis &&
+        typeof globalThis.prompt === "function"
+          ? globalThis.prompt
+          : null;
+      if (!promptFn) {
+        updateCategoryOverride(item.merchantKey, item.category);
+        return;
+      }
+      const choice = promptFn(
+        `${item.merchant} is currently in ${currentCategoryLabel}.\nChoose category:\n1 = Goods\n2 = Services\n3 = Bills`,
+        item.category === "goods" ? "1" : item.category === "services" ? "2" : "3",
+      );
+      const normalized = (choice ?? "").trim();
+      if (normalized === "1") {
+        updateCategoryOverride(item.merchantKey, "goods");
+      } else if (normalized === "2") {
+        updateCategoryOverride(item.merchantKey, "services");
+      } else if (normalized === "3") {
+        updateCategoryOverride(item.merchantKey, "household-bills");
+      }
+      return;
+    }
     Alert.alert(
       "Choose new category",
       `${item.merchant} is currently in ${currentCategoryLabel}. Where should it go?`,
