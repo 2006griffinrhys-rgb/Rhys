@@ -12,27 +12,37 @@ function App() {
     [tasks]
   );
 
-  const loadTasks = async () => {
-    setLoading(true);
-    setError("");
-
-    try {
-      const response = await fetch("/api/tasks");
-      if (!response.ok) {
-        throw new Error("Could not load tasks.");
-      }
-
-      const payload = await response.json();
-      setTasks(Array.isArray(payload) ? payload : []);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    loadTasks();
+    let active = true;
+
+    const fetchTasks = async () => {
+      try {
+        const response = await fetch("/api/tasks");
+        if (!response.ok) {
+          throw new Error("Could not load tasks.");
+        }
+
+        const payload = await response.json();
+        if (active) {
+          setTasks(Array.isArray(payload) ? payload : []);
+          setError("");
+        }
+      } catch (err) {
+        if (active) {
+          setError(err.message);
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchTasks();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   const addTask = async (event) => {
