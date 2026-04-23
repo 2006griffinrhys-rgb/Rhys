@@ -949,14 +949,14 @@ export function DashboardScreen() {
             </View>
           </View>
 
-          <View style={styles.summaryBubbleGrid}>
+          <View style={[styles.summaryBubbleGrid, !isMobile && styles.summaryBubbleGridDesktop]}>
             {summaryCards.map((card) => {
               const toneStyle = getSummaryToneStyle(card.tone);
               return (
                 <Pressable
                   key={card.key}
                   onPress={() => setSelectedSummaryMetric(card.key)}
-                  style={styles.summaryBubbleCard}
+                  style={[styles.summaryBubbleCard, !isMobile && styles.summaryBubbleCardDesktop]}
                 >
                   <View style={styles.summaryBubbleHeader}>
                     <View
@@ -1397,15 +1397,19 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: spacing.sm,
   },
+  summaryBubbleGridDesktop: {
+    flexWrap: "nowrap",
+    justifyContent: "space-between",
+  },
   summaryBubbleCard: {
     width: "100%",
-    borderRadius: radii.xl,
+    borderRadius: radii.lg,
     borderWidth: 1,
     borderColor: colors.authBorder,
     backgroundColor: colors.authSurface,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    gap: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    gap: 2,
   },
   summaryBubbleHeader: {
     flexDirection: "row",
@@ -1413,33 +1417,34 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   summaryBubbleIconWrap: {
-    width: 24,
-    height: 24,
+    width: 22,
+    height: 22,
     borderRadius: radii.pill,
     alignItems: "center",
     justifyContent: "center",
   },
   summaryBubbleIcon: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "700",
   },
   summaryBubbleLabel: {
     flex: 1,
     color: "#6C7483",
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "800",
     textTransform: "uppercase",
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
   summaryBubbleValue: {
     color: colors.webLandingText,
-    fontSize: 33,
+    fontSize: 34,
     fontWeight: "800",
+    lineHeight: 36,
   },
   summaryBubbleMeta: {
     color: colors.webLandingSubtext,
-    fontSize: 12,
-    lineHeight: 17,
+    fontSize: 11,
+    lineHeight: 15,
   },
   tabRow: {
     flexDirection: "row",
@@ -1877,7 +1882,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   summaryBubbleCardDesktop: {
-    width: "19%",
-    minWidth: 170,
+    width: "18.8%",
+    minWidth: 154,
   },
 });
