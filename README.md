@@ -180,6 +180,7 @@ Expected Supabase Edge Functions:
 - `billing-create-checkout-session`
 - `billing-create-portal-session`
 - `billing-cancel-subscription`
+- `billing-create-applepay-intent` (required for native iOS Apple Pay)
 
 Implemented billing behavior:
 
@@ -189,6 +190,19 @@ Implemented billing behavior:
 - Premium: 20 claims/month + bill alerts + chasing.
 - Unlimited: unlimited claims + priority support.
 - iOS-native Apple Pay attempt for paid-plan upgrade flow with Stripe Checkout fallback when unavailable/not configured.
+
+### Apple Pay backend function secrets
+
+For `billing-create-applepay-intent`, set these Supabase secrets:
+
+- `STRIPE_SECRET_KEY` (required)
+- `STRIPE_WEBHOOK_SIGNING_SECRET` (optional, if you later add webhook-based reconciliation)
+
+Deploy:
+
+```bash
+supabase functions deploy billing-create-applepay-intent
+```
 
 ## Background scanning (app closed / OS-managed)
 

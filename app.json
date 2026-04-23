@@ -38,7 +38,12 @@
     "plugins": [
       "expo-background-fetch",
       "expo-task-manager",
-      "@stripe/stripe-react-native"
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.prooof.app"
+        }
+      ]
     ],
     "extra": {
       "eas": {
