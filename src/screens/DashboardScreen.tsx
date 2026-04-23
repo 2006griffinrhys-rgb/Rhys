@@ -67,6 +67,11 @@ type QuickViewRow = {
   note?: string;
 };
 
+type CategoryCopy = {
+  title: string;
+  subtitle: string;
+};
+
 type QuickViewConfig = {
   title: string;
   subtitle: string;
@@ -93,6 +98,21 @@ const CATEGORY_TABS: CategoryTab[] = [
   { key: "services", label: "Services", tone: "services" },
   { key: "household-bills", label: "Bills", tone: "bills" },
 ];
+
+const CATEGORY_COPY: Record<ClaimCategory, CategoryCopy> = {
+  goods: {
+    title: "Everything you own",
+    subtitle: "Products, retail purchases and physical items from your tracked transactions.",
+  },
+  services: {
+    title: "Hotels, flights & travel",
+    subtitle: "Hotel stays, flights, transport, package holidays and event tickets.",
+  },
+  "household-bills": {
+    title: "Home bills & utilities",
+    subtitle: "Energy, water, broadband, mobile and other recurring household costs.",
+  },
+};
 
 const HOUSEHOLD_TIPS = [
   {
@@ -1027,9 +1047,8 @@ export function DashboardScreen() {
             })}
           </View>
 
-          <Text style={styles.sectionHeading}>
-            Your owned {CATEGORY_TABS.find((tab) => tab.key === selectedCategory)?.label ?? "items"}
-          </Text>
+          <Text style={styles.sectionHeading}>{CATEGORY_COPY[selectedCategory].title}</Text>
+          <Text style={styles.sectionSubheading}>{CATEGORY_COPY[selectedCategory].subtitle}</Text>
           {selectedRows.length > 0 ? (
             <View style={styles.opportunityGrid}>
               {selectedRows.map((item) => {
@@ -1452,6 +1471,13 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "800",
     marginTop: spacing.xs,
+  },
+  sectionSubheading: {
+    color: colors.webLandingSubtext,
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: -2,
+    marginBottom: spacing.xs,
   },
   opportunityGrid: {
     flexDirection: "row",

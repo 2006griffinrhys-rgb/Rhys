@@ -234,9 +234,9 @@ export function SettingsScreen() {
               })}
             </View>
             <View style={styles.planGroup}>
-              {renderPlanButton("free", "Free · 5 claims/mo · no bill monitoring")}
-              {renderPlanButton("premium", "Premium · 20 claims/mo + bill alerts + chasing")}
-              {renderPlanButton("unlimited", "Unlimited · unlimited claims + priority")}
+              {renderPlanButton("free", "Free · 5 claims/mo · No bill monitoring")}
+              {renderPlanButton("premium", "Premium · 20 claims/mo + Bill alerts + chasing")}
+              {renderPlanButton("unlimited", "Unlimited · Unlimited claims + priority")}
             </View>
             <Text style={styles.scanMeta}>
               Active plan price: {formatCents(activePlanPriceCents, preferredCurrency)}{" "}
