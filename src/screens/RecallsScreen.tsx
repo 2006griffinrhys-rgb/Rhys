@@ -64,10 +64,17 @@ export function RecallsScreen() {
   } = useAppData();
   const [activeRecall, setActiveRecall] = useState<Recall | null>(null);
   const [submittingClaim, setSubmittingClaim] = useState(false);
+  const [dismissedRecallIds, setDismissedRecallIds] = useState<string[]>([]);
 
   const manufacturerRecalls = useMemo(
-    () => recalls.filter((recall) => recall.isActive && isManufacturerIdentifiedRecall(recall.source)),
-    [recalls],
+    () =>
+      recalls.filter(
+        (recall) =>
+          recall.isActive &&
+          isManufacturerIdentifiedRecall(recall.source) &&
+          !dismissedRecallIds.includes(recall.id),
+      ),
+    [dismissedRecallIds, recalls],
   );
 
   const handleCreateClaim = async (recallId: string) => {
@@ -128,6 +135,24 @@ export function RecallsScreen() {
     }
   };
 
+  const handleDeleteRecallBubble = (recall: Recall) => {
+    Alert.alert("Delete recall bubble", "Remove this recall bubble from this page?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () => {
+          setDismissedRecallIds((current) =>
+            current.includes(recall.id) ? current : [...current, recall.id],
+          );
+          if (activeRecall?.id === recall.id) {
+            setActiveRecall(null);
+          }
+        },
+      },
+    ]);
+  };
+
   return (
     <Screen onRefresh={refresh} refreshing={refreshing}>
       <View style={styles.page}>
@@ -155,16 +180,25 @@ export function RecallsScreen() {
                         {recall.source} • {formatDate(recall.publishedAt)}
                       </Text>
                     </View>
-                    <View
-                      style={[
-                        styles.claimStateBadge,
-                        {
-                          backgroundColor: badge.backgroundColor,
-                          borderColor: badge.borderColor,
-                        },
-                      ]}
-                    >
-                      <Text style={[styles.claimStateText, { color: badge.color }]}>{claimState}</Text>
+                    <View style={styles.itemHeaderActions}>
+                      <Pressable
+                        style={styles.deleteButton}
+                        onPress={() => handleDeleteRecallBubble(recall)}
+                        accessibilityLabel="Delete recall bubble"
+                      >
+                        <Text style={styles.deleteButtonText}>🗑</Text>
+                      </Pressable>
+                      <View
+                        style={[
+                          styles.claimStateBadge,
+                          {
+                            backgroundColor: badge.backgroundColor,
+                            borderColor: badge.borderColor,
+                          },
+                        ]}
+                      >
+                        <Text style={[styles.claimStateText, { color: badge.color }]}>{claimState}</Text>
+                      </View>
                     </View>
                   </View>
                   <Text style={styles.itemBody}>{recall.details}</Text>
@@ -245,6 +279,17 @@ const styles = StyleSheet.create({
   },
   itemHeadContent: {
     flex: 1,
+  },
+  itemHeaderActions: {
+    alignItems: "flex-end",
+    gap: spacing.xs,
+  },
+  deleteButton: {
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  deleteButtonText: {
+    fontSize: 13,
   },
   itemTitle: {
     color: colors.textPrimary,
