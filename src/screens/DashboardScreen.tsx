@@ -1393,7 +1393,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     gap: spacing.md,
-    marginLeft: 36,
+    marginLeft: 56,
     marginTop: -2,
   },
   tipDotsRow: {
