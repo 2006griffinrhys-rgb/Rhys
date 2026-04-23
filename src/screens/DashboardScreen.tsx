@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Alert, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { BillClaimDialog } from "@/components/BillClaimDialog";
 import { ProductClaimDialog } from "@/components/ProductClaimDialog";
+import { ReceiptImageDropZone, type ReceiptImageSelectionPayload } from "@/components/ReceiptImageDropZone";
 import { Screen } from "@/components/Screen";
 import { useAuth } from "@/providers/AuthProvider";
 import { useAppData } from "@/providers/AppDataProvider";
@@ -216,7 +217,16 @@ const GOODS_KEYWORDS = [
   "shoe",
   "footwear",
   "electronics",
+  "electronic",
   "gadget",
+  "laptop",
+  "tablet",
+  "phone",
+  "tv",
+  "monitor",
+  "headphone",
+  "printer",
+  "camera",
   "home",
   "appliance",
   "grocery",
@@ -227,6 +237,56 @@ const GOODS_KEYWORDS = [
   "health",
   "sport",
   "toy",
+];
+
+const CLAIMABLE_GOODS_KEYWORDS = [
+  "electronics",
+  "electronic",
+  "gadget",
+  "laptop",
+  "tablet",
+  "phone",
+  "tv",
+  "monitor",
+  "headphone",
+  "printer",
+  "camera",
+  "appliance",
+  "furniture",
+  "clothing",
+  "fashion",
+  "shoe",
+  "footwear",
+  "toy",
+  "beauty",
+  "health",
+  "sport",
+];
+
+const GROCERY_MERCHANT_PATTERNS = [
+  "tesco",
+  "sainsbury",
+  "aldi",
+  "lidl",
+  "asda",
+  "waitrose",
+  "morrisons",
+  "iceland",
+  "co-op",
+  "coop",
+];
+
+const GROCERY_KEYWORDS = [
+  "grocery",
+  "grocer",
+  "supermarket",
+  "food",
+  "produce",
+  "bakery",
+  "deli",
+  "fruit",
+  "vegetable",
+  "meal",
 ];
 
 const SERVICE_KEYWORDS = [
@@ -299,6 +359,13 @@ function resolveConfidenceLabel(score: number, delta: number): "High" | "Medium"
   return "Low";
 }
 
+function isLikelyNonClaimableGroceries(base: string, merchant: string): boolean {
+  const hasGroceryMerchantPattern = GROCERY_MERCHANT_PATTERNS.some((pattern) => merchant.includes(pattern));
+  const hasGroceryKeyword = GROCERY_KEYWORDS.some((keyword) => base.includes(keyword));
+  const hasClaimableGoodsSignal = CLAIMABLE_GOODS_KEYWORDS.some((keyword) => base.includes(keyword));
+  return (hasGroceryMerchantPattern || hasGroceryKeyword) && !hasClaimableGoodsSignal;
+}
+
 function formatMerchantBubbleLabel(merchant: string): string {
   return merchant
     .trim()
@@ -335,11 +402,19 @@ function classifyOpportunityCategory(input: {
   const billsMatches = keywordMatches(base, BILL_KEYWORDS);
 
   const merchant = input.merchant.toLowerCase();
+  if (isLikelyNonClaimableGroceries(base, merchant)) {
+    return null;
+  }
   if (merchant.includes("uber") || merchant.includes("trainline") || merchant.includes("airbnb")) {
     servicesMatches.push("merchant-travel-pattern");
   }
-  if (merchant.includes("tesco") || merchant.includes("sainsbury") || merchant.includes("currys")) {
-    goodsMatches.push("merchant-retail-pattern");
+  if (
+    merchant.includes("currys") ||
+    merchant.includes("john lewis") ||
+    merchant.includes("argos") ||
+    merchant.includes("ao.com")
+  ) {
+    goodsMatches.push("merchant-claimable-goods-pattern");
   }
   if (merchant.includes("british gas") || merchant.includes("thames water") || merchant.includes("edf")) {
     billsMatches.push("merchant-utility-pattern");
@@ -615,6 +690,7 @@ export function DashboardScreen() {
     claimTier,
     submitBillClaimWithEmail,
     submitProductClaimWithEmail,
+    scanReceiptImageFromUpload,
   } = useAppData();
   const { width } = useWindowDimensions();
   const isMobile = width < 760;
@@ -626,6 +702,9 @@ export function DashboardScreen() {
   const [activeBillClaim, setActiveBillClaim] = useState<ClaimOpportunity | null>(null);
   const [submittingClaim, setSubmittingClaim] = useState(false);
   const [categoryOverrides, setCategoryOverrides] = useState<CategoryOverrideMap>({});
+  const [isUploadingReceiptImage, setIsUploadingReceiptImage] = useState(false);
+  const [uploadReceiptError, setUploadReceiptError] = useState<string | null>(null);
+  const [uploadReceiptSuccess, setUploadReceiptSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -1005,6 +1084,28 @@ export function DashboardScreen() {
     ]);
   };
 
+  const handleReceiptImageSelected = async (payload: ReceiptImageSelectionPayload) => {
+    try {
+      setIsUploadingReceiptImage(true);
+      setUploadReceiptError(null);
+      setUploadReceiptSuccess(null);
+      const result = await scanReceiptImageFromUpload({
+        base64Image: payload.base64Image,
+        fileName: payload.fileName,
+        mimeType: payload.mimeType,
+      });
+      const warningPrefix = result.warnings.length > 0 ? ` (${result.warnings[0]})` : "";
+      setUploadReceiptSuccess(
+        `Added ${result.receipt.merchant} ${formatCents(result.receipt.totalCents, result.receipt.currency)}${warningPrefix}`,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not scan receipt screenshot.";
+      setUploadReceiptError(message);
+    } finally {
+      setIsUploadingReceiptImage(false);
+    }
+  };
+
   const handleSubmitProductClaim = async (payload: {
     reason: string;
     outcome: ProductClaimOutcome;
@@ -1173,6 +1274,20 @@ export function DashboardScreen() {
                 </Pressable>
               );
             })}
+          </View>
+
+          <View style={styles.receiptUploadCard}>
+            <Text style={styles.receiptUploadTitle}>Scan receipt screenshot</Text>
+            <Text style={styles.receiptUploadSubtitle}>
+              Drop, paste, or upload receipt/invoice/bill screenshots and we will scan them into your tracked purchases.
+            </Text>
+            <ReceiptImageDropZone onSelectImage={handleReceiptImageSelected} disabled={isUploadingReceiptImage} />
+            {uploadReceiptError ? (
+              <Text style={styles.receiptUploadStatusError}>{uploadReceiptError}</Text>
+            ) : null}
+            {uploadReceiptSuccess ? (
+              <Text style={styles.receiptUploadStatusSuccess}>{uploadReceiptSuccess}</Text>
+            ) : null}
           </View>
 
           <View style={styles.taxReliefCard}>
@@ -1596,6 +1711,37 @@ const styles = StyleSheet.create({
     color: colors.webLandingSubtext,
     fontSize: 16,
     lineHeight: 22,
+  },
+  receiptUploadCard: {
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.authBorder,
+    backgroundColor: colors.authSurface,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  receiptUploadTitle: {
+    color: colors.webLandingText,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  receiptUploadSubtitle: {
+    color: colors.webLandingSubtext,
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: spacing.xs,
+  },
+  receiptUploadStatusError: {
+    marginTop: spacing.xs,
+    color: colors.danger,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  receiptUploadStatusSuccess: {
+    marginTop: spacing.xs,
+    color: colors.success,
+    fontSize: 12,
+    fontWeight: "600",
   },
   summaryBubbleGrid: {
     flexDirection: "row",

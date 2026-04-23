@@ -17,6 +17,7 @@ type ExtraConfig = {
       backgroundInboxTaskEnabled?: boolean;
       backgroundInboxTaskIntervalSeconds?: number;
       serverScanFallbackEnabled?: boolean;
+      receiptImageScanEnabled?: boolean;
     };
   };
 };
@@ -105,6 +106,10 @@ const serverScanFallbackEnabled =
   process.env.EXPO_PUBLIC_SERVER_SCAN_FALLBACK_ENABLED !== "false" &&
   extraConfig.expoConfig?.extra?.serverScanFallbackEnabled !== false;
 
+const receiptImageScanEnabled =
+  process.env.EXPO_PUBLIC_RECEIPT_IMAGE_SCAN_ENABLED !== "false" &&
+  extraConfig.expoConfig?.extra?.receiptImageScanEnabled !== false;
+
 export const env = {
   supabaseUrl,
   supabaseAnonKey,
@@ -121,6 +126,7 @@ export const env = {
   backgroundInboxTaskEnabled,
   backgroundInboxTaskIntervalSeconds,
   serverScanFallbackEnabled,
+  receiptImageScanEnabled,
   hasSupabaseConfig: Boolean(supabaseUrl && supabaseAnonKey),
   demoAuthEnabled: process.env.EXPO_PUBLIC_ENABLE_DEMO_AUTH === "true" || !(supabaseUrl && supabaseAnonKey),
 };
@@ -143,6 +149,7 @@ export function getEnvSummary() {
     backgroundInboxTaskEnabled: env.backgroundInboxTaskEnabled,
     backgroundInboxTaskIntervalSeconds: env.backgroundInboxTaskIntervalSeconds,
     serverScanFallbackEnabled: env.serverScanFallbackEnabled,
+    receiptImageScanEnabled: env.receiptImageScanEnabled,
     usingFallback: !env.hasSupabaseConfig,
     demoAuthEnabled: env.demoAuthEnabled,
   };

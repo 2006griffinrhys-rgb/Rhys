@@ -41,6 +41,19 @@ export type Receipt = {
   supplierWarrantyCheckedAt?: string;
 };
 
+export type ReceiptImageScanInput = {
+  base64Image: string;
+  fileName?: string;
+  mimeType?: string;
+};
+
+export type ReceiptImageScanResult = {
+  receipt: Receipt;
+  extractedText?: string;
+  warnings: string[];
+  mode: "live" | "mock";
+};
+
 export type Product = {
   id: string;
   name: string;

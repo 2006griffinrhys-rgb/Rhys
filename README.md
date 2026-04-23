@@ -181,6 +181,7 @@ Expected Supabase Edge Functions:
 - `billing-create-portal-session`
 - `billing-cancel-subscription`
 - `billing-create-applepay-intent` (required for native iOS Apple Pay)
+- `scan-receipt-image` (required for screenshot receipt/invoice/bill scanning)
 
 Implemented billing behavior:
 
@@ -252,3 +253,29 @@ Deploy/update the function:
 ```bash
 supabase functions deploy generate-claim
 ```
+
+## Receipt screenshot scanning (drop/upload/paste)
+
+Users can now add receipts by screenshot from the Dashboard:
+
+- Web: drag/drop, clipboard paste, or upload file chooser
+- iOS/Android: image picker upload
+
+The app sends the image to:
+
+- `scan-receipt-image` (Supabase Edge Function)
+
+Deploy/update this function:
+
+```bash
+supabase functions deploy scan-receipt-image
+```
+
+Environment toggle:
+
+- `EXPO_PUBLIC_RECEIPT_IMAGE_SCAN_ENABLED=true`
+
+Notes:
+
+- The included function currently uses safe heuristic parsing (merchant/amount hints), so it works immediately.
+- You can later plug in a dedicated OCR provider in `supabase/functions/scan-receipt-image/index.ts` to upgrade extraction quality without changing app UI.

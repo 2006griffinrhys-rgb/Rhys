@@ -15,6 +15,7 @@ import type {
   Product,
   Recall,
   Receipt,
+  ReceiptImageScanResult,
   SupportedCurrency,
 } from "@/types/domain";
 import {
@@ -29,6 +30,7 @@ import {
   fetchSnapshotForUser,
   requestServerScanFallback,
   runMultiProviderInboxScan,
+  scanReceiptImage,
 } from "@/services/prooofApi";
 import {
   createStripeCheckoutSession,
@@ -145,6 +147,11 @@ type AppDataContextValue = AppDataState & {
     signOffName: string;
     requestedOutcome: BillClaimOutcome;
   }) => Promise<Claim>;
+  scanReceiptImageFromUpload: (input: {
+    base64Image: string;
+    fileName?: string;
+    mimeType?: string;
+  }) => Promise<ReceiptImageScanResult>;
   deleteClaimById: (claimId: string) => void;
 };
 
@@ -711,6 +718,44 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     [state.claims, user?.id, userPlan],
   );
 
+  const scanReceiptImageFromUpload = useCallback(
+    async (input: { base64Image: string; fileName?: string; mimeType?: string }) => {
+      if (!input.base64Image.trim()) {
+        throw new Error("Receipt image data is empty.");
+      }
+      const result = await scanReceiptImage(user?.id ?? "", input);
+      const normalizedReceipt: Receipt = {
+        ...result.receipt,
+        totalCents: convertCents(result.receipt.totalCents, result.receipt.currency, preferredCurrency),
+        currency: preferredCurrency,
+      };
+      setState((current) => {
+        const existingIndex = current.receipts.findIndex((receipt) => receipt.id === normalizedReceipt.id);
+        const nextReceipts =
+          existingIndex >= 0
+            ? current.receipts.map((receipt, index) =>
+                index === existingIndex ? normalizedReceipt : receipt,
+              )
+            : [normalizedReceipt, ...current.receipts];
+        const nextStats = {
+          ...current.stats,
+          receiptCount: nextReceipts.length,
+          totalSpendCents: nextReceipts.reduce((sum, receipt) => sum + receipt.totalCents, 0),
+        };
+        return {
+          ...current,
+          receipts: nextReceipts,
+          stats: nextStats,
+        };
+      });
+      return {
+        ...result,
+        receipt: normalizedReceipt,
+      };
+    },
+    [preferredCurrency, user?.id],
+  );
+
   const deleteClaimById = useCallback((claimId: string) => {
     setState((current) => {
       const nextClaims = current.claims.filter((claim) => claim.id !== claimId);
@@ -1216,6 +1261,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       createManualClaimDraft,
       submitProductClaimWithEmail,
       submitBillClaimWithEmail,
+      scanReceiptImageFromUpload,
       deleteClaimById,
     }),
     [
@@ -1255,6 +1301,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       createManualClaimDraft,
       submitProductClaimWithEmail,
       submitBillClaimWithEmail,
+      scanReceiptImageFromUpload,
       deleteClaimById,
     ],
   );

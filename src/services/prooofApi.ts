@@ -18,6 +18,8 @@ import type {
   Product,
   Recall,
   Receipt,
+  ReceiptImageScanInput,
+  ReceiptImageScanResult,
   ReceiptStatus,
 } from "@/types/domain";
 
@@ -29,6 +31,13 @@ const ALL_EMAIL_PROVIDERS: EmailProviderId[] = [
   "office365",
   "exchange",
   "work-imap",
+];
+const MOCK_IMAGE_SCAN_MERCHANTS = [
+  "Currys",
+  "John Lewis",
+  "Argos",
+  "Amazon UK",
+  "AO.com",
 ];
 
 function asString(value: unknown, fallback = ""): string {
@@ -54,6 +63,60 @@ function asBoolean(value: unknown, fallback = false): boolean {
 function asArrayOfStrings(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is string => typeof item === "string");
+}
+
+function toTitleCase(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
+    .join(" ");
+}
+
+function inferMerchantFromFilename(fileName?: string): string | undefined {
+  if (!fileName) return undefined;
+  const stem = fileName.replace(/\.[a-z0-9]+$/i, "");
+  const normalized = stem
+    .replace(/[-_]+/g, " ")
+    .replace(/\b(receipt|invoice|bill|screenshot|scan|img|photo)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (normalized.length < 3) return undefined;
+  return toTitleCase(normalized);
+}
+
+function inferAmountFromFilename(fileName?: string): number | null {
+  if (!fileName) return null;
+  const normalized = fileName.replace(/[_-]/g, ".");
+  const match = normalized.match(/(\d{1,4}(?:\.\d{2})?)/);
+  if (!match) return null;
+  const value = Number.parseFloat(match[1]);
+  if (!Number.isFinite(value) || value <= 0) return null;
+  return Math.round(value * 100);
+}
+
+function buildMockImageScanResult(input: ReceiptImageScanInput): ReceiptImageScanResult {
+  const merchant =
+    inferMerchantFromFilename(input.fileName) ??
+    MOCK_IMAGE_SCAN_MERCHANTS[Math.floor(Math.random() * MOCK_IMAGE_SCAN_MERCHANTS.length)];
+  const amountCents = inferAmountFromFilename(input.fileName) ?? 4899;
+  const nowIso = new Date().toISOString();
+  return {
+    receipt: {
+      id: `manual-img-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      merchant,
+      totalCents: amountCents,
+      currency: "GBP",
+      purchaseDate: nowIso,
+      source: "manual",
+      status: "processed",
+    },
+    extractedText: undefined,
+    warnings: ["Using fallback parser. Configure scan-receipt-image function for OCR extraction."],
+    mode: "mock",
+  };
 }
 
 function asReceiptStatus(value: unknown): ReceiptStatus {
@@ -542,4 +605,92 @@ export async function requestServerScanFallback(userId: string, providers: Email
     throw new Error(error.message);
   }
   return { accepted: true, mode: "live" as const };
+}
+
+export async function scanReceiptImage(
+  userId: string,
+  input: ReceiptImageScanInput,
+): Promise<ReceiptImageScanResult> {
+  const fallback = buildMockImageScanResult(input);
+  if (!userId) {
+    return {
+      ...fallback,
+      warnings: [...fallback.warnings, "Sign in is required to persist scanned receipts."],
+    };
+  }
+  if (!env.hasSupabaseConfig) {
+    return fallback;
+  }
+
+  try {
+    const { data, error } = await supabase.functions.invoke("scan-receipt-image", {
+      body: {
+        userId,
+        base64Image: input.base64Image,
+        fileName: input.fileName,
+        mimeType: input.mimeType,
+      },
+    });
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const payload = (data ?? {}) as UnknownRow;
+    const resultMode = asString(payload.mode).toLowerCase();
+    if (
+      asString(payload.mode).toLowerCase() === "mock" &&
+      typeof payload.receipt === "undefined"
+    ) {
+      return fallback;
+    }
+    const rawReceipt =
+      typeof payload.receipt === "object" && payload.receipt !== null
+        ? (payload.receipt as UnknownRow)
+        : null;
+    const parsedWarnings = asArrayOfStrings(payload.warnings);
+    const extractedText = asOptionalString(payload.extractedText ?? payload.extracted_text);
+    const parsedReceipt = rawReceipt ? mapReceipt(rawReceipt) : null;
+    const receiptToPersist = parsedReceipt ?? fallback.receipt;
+    const warnings = parsedReceipt
+      ? parsedWarnings
+      : [...parsedWarnings, "OCR parser returned partial data, applied fallback receipt mapping."];
+
+    const { data: insertedRow, error: insertError } = await supabase
+      .from("bills")
+      .insert({
+        user_id: userId,
+        merchant: receiptToPersist.merchant,
+        total_cents: receiptToPersist.totalCents,
+        currency: receiptToPersist.currency,
+        purchased_at: receiptToPersist.purchaseDate,
+        source: "manual",
+        status: receiptToPersist.status,
+        supplier_warranty_months: receiptToPersist.supplierWarrantyMonths,
+        supplier_warranty_source: receiptToPersist.supplierWarrantySource,
+      })
+      .select("*")
+      .single();
+
+    if (insertError || !insertedRow) {
+      return {
+        receipt: receiptToPersist,
+        extractedText,
+        warnings: [...warnings, insertError?.message ?? "Scanned receipt could not be saved to bills table."],
+        mode: resultMode === "live" ? "live" : "mock",
+      };
+    }
+
+    return {
+      receipt: mapReceipt(insertedRow as UnknownRow),
+      extractedText,
+      warnings,
+      mode: resultMode === "live" ? "live" : "mock",
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Receipt image scan failed.";
+    return {
+      ...fallback,
+      warnings: [...fallback.warnings, message],
+    };
+  }
 }
