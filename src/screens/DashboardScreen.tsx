@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Linking, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Alert, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { BillClaimDialog } from "@/components/BillClaimDialog";
 import { ProductClaimDialog } from "@/components/ProductClaimDialog";
 import { Screen } from "@/components/Screen";
@@ -38,6 +38,39 @@ type CategoryTab = {
   key: ClaimCategory;
   label: string;
   tone: ClaimCategoryTone;
+};
+
+type SummaryMetricKey =
+  | "total-value-owned"
+  | "under-warranty"
+  | "warranty-expired"
+  | "safety-recalls"
+  | "items-missing-info";
+
+type SummaryCardTone = "neutral" | "success" | "danger" | "mint" | "warning";
+
+type SummaryCard = {
+  key: SummaryMetricKey;
+  label: string;
+  value: string;
+  meta?: string;
+  icon: string;
+  tone: SummaryCardTone;
+};
+
+type QuickViewRow = {
+  id: string;
+  date: string;
+  brand: string;
+  product: string;
+  amount: string;
+  note?: string;
+};
+
+type QuickViewConfig = {
+  title: string;
+  subtitle: string;
+  rows: QuickViewRow[];
 };
 
 type OpportunitySubtype =
@@ -451,6 +484,7 @@ export function DashboardScreen() {
   const { user } = useAuth();
   const {
     receipts,
+    recalls,
     refresh,
     refreshing,
     userPlan,
@@ -468,6 +502,7 @@ export function DashboardScreen() {
   const isMobile = width < 760;
   const [selectedCategory, setSelectedCategory] = useState<ClaimCategory>("goods");
   const [activeHouseholdTipIndex, setActiveHouseholdTipIndex] = useState(0);
+  const [selectedSummaryMetric, setSelectedSummaryMetric] = useState<SummaryMetricKey | null>(null);
   const [dismissedOpportunityIds, setDismissedOpportunityIds] = useState<string[]>([]);
   const [activeProductClaim, setActiveProductClaim] = useState<ClaimOpportunity | null>(null);
   const [activeBillClaim, setActiveBillClaim] = useState<ClaimOpportunity | null>(null);
@@ -557,6 +592,152 @@ export function DashboardScreen() {
     () => opportunities.reduce((sum, item) => sum + item.estimatedClaimCents, 0),
     [opportunities],
   );
+  const totalValueOwnedCents = useMemo(
+    () => opportunities.reduce((sum, item) => sum + item.amountCents, 0),
+    [opportunities],
+  );
+  const underWarrantyRows = useMemo(
+    () => opportunities.filter((item) => item.tone === "goods" && item.hasKnownWarranty && item.withinSupplierWarranty),
+    [opportunities],
+  );
+  const warrantyExpiredRows = useMemo(
+    () => opportunities.filter((item) => item.tone === "goods" && item.hasKnownWarranty && !item.withinSupplierWarranty),
+    [opportunities],
+  );
+  const missingInfoRows = useMemo(
+    () => opportunities.filter((item) => item.tone === "goods" && !item.hasKnownWarranty),
+    [opportunities],
+  );
+  const activeRecallRows = useMemo(() => recalls.filter((recall) => recall.isActive), [recalls]);
+  const allOwnedRows = useMemo<QuickViewRow[]>(
+    () =>
+      opportunities.map((item) => ({
+        id: `owned-${item.id}`,
+        date: formatDate(item.purchaseDate),
+        brand: item.merchant,
+        product: item.title,
+        amount: formatCents(item.amountCents, item.currency),
+        note: item.source,
+      })),
+    [opportunities],
+  );
+  const summaryCards = useMemo<SummaryCard[]>(
+    () => [
+      {
+        key: "total-value-owned",
+        label: "Total value owned",
+        value: formatCents(totalValueOwnedCents, preferredCurrency),
+        icon: "⛓",
+        tone: "neutral",
+      },
+      {
+        key: "under-warranty",
+        label: "Under warranty",
+        value: `${underWarrantyRows.length} item${underWarrantyRows.length === 1 ? "" : "s"}`,
+        icon: "🛡",
+        tone: "success",
+      },
+      {
+        key: "warranty-expired",
+        label: "Warranty expired",
+        value: `${warrantyExpiredRows.length} item${warrantyExpiredRows.length === 1 ? "" : "s"}`,
+        icon: "⛔",
+        tone: "danger",
+      },
+      {
+        key: "safety-recalls",
+        label: "Safety recalls",
+        value: `${activeRecallRows.length} item${activeRecallRows.length === 1 ? "" : "s"}`,
+        meta: activeRecallRows.length === 0 ? "No recalls found" : undefined,
+        icon: "♻",
+        tone: "mint",
+      },
+      {
+        key: "items-missing-info",
+        label: "Items missing info",
+        value: `${missingInfoRows.length} item${missingInfoRows.length === 1 ? "" : "s"}`,
+        icon: "⚠",
+        tone: "warning",
+      },
+    ],
+    [
+      activeRecallRows.length,
+      missingInfoRows.length,
+      preferredCurrency,
+      totalValueOwnedCents,
+      underWarrantyRows.length,
+      warrantyExpiredRows.length,
+    ],
+  );
+  const quickViewConfig = useMemo<QuickViewConfig | null>(() => {
+    if (!selectedSummaryMetric) return null;
+    if (selectedSummaryMetric === "total-value-owned") {
+      return {
+        title: "Everything you own",
+        subtitle: "Date, brand, product and amount for everything we've tracked.",
+        rows: allOwnedRows,
+      };
+    }
+    if (selectedSummaryMetric === "under-warranty") {
+      return {
+        title: "Under warranty",
+        subtitle: "Items still inside a known supplier warranty window.",
+        rows: underWarrantyRows.map((item) => ({
+          id: `warranty-${item.id}`,
+          date: formatDate(item.purchaseDate),
+          brand: item.merchant,
+          product: item.title,
+          amount: formatCents(item.amountCents, item.currency),
+          note: item.warrantyLabel,
+        })),
+      };
+    }
+    if (selectedSummaryMetric === "warranty-expired") {
+      return {
+        title: "Warranty expired",
+        subtitle: "Items where the known supplier warranty period has ended.",
+        rows: warrantyExpiredRows.map((item) => ({
+          id: `expired-${item.id}`,
+          date: formatDate(item.purchaseDate),
+          brand: item.merchant,
+          product: item.title,
+          amount: formatCents(item.amountCents, item.currency),
+        })),
+      };
+    }
+    if (selectedSummaryMetric === "safety-recalls") {
+      return {
+        title: "Safety recalls",
+        subtitle: "Active recalls currently identified for your tracked items.",
+        rows: activeRecallRows.map((recall) => ({
+          id: `recall-${recall.id}`,
+          date: formatDate(recall.publishedAt),
+          brand: recall.source,
+          product: recall.productName,
+          amount: formatCents(recall.estimatedPayoutCents, recall.estimatedPayoutCurrency),
+          note: recall.title,
+        })),
+      };
+    }
+    return {
+      title: "Items missing info",
+      subtitle: "Tracked purchases where warranty-source information is still missing.",
+      rows: missingInfoRows.map((item) => ({
+        id: `missing-${item.id}`,
+        date: formatDate(item.purchaseDate),
+        brand: item.merchant,
+        product: item.title,
+        amount: formatCents(item.amountCents, item.currency),
+      })),
+    };
+  }, [
+    activeRecallRows,
+    allOwnedRows,
+    missingInfoRows,
+    selectedSummaryMetric,
+    underWarrantyRows,
+    warrantyExpiredRows,
+  ]);
   const activeHouseholdTip = HOUSEHOLD_TIPS[activeHouseholdTipIndex];
 
   const openTipLink = async () => {
@@ -676,6 +857,22 @@ export function DashboardScreen() {
     }
   };
 
+  const getSummaryToneStyle = (tone: SummaryCardTone) => {
+    if (tone === "success") {
+      return { iconBackground: "#E5F8EF", iconColor: "#14A15B" };
+    }
+    if (tone === "danger") {
+      return { iconBackground: "#FFECEE", iconColor: "#F05252" };
+    }
+    if (tone === "mint") {
+      return { iconBackground: "#E9FAF3", iconColor: "#33B87D" };
+    }
+    if (tone === "warning") {
+      return { iconBackground: "#FFF4E1", iconColor: "#9A7A35" };
+    }
+    return { iconBackground: "#F2F4F7", iconColor: "#6A7383" };
+  };
+
   return (
     <Screen onRefresh={refresh} refreshing={refreshing} backgroundColor={colors.authBackground}>
       <View style={styles.page}>
@@ -730,6 +927,35 @@ export function DashboardScreen() {
                 refund/compensation.
               </Text>
             </View>
+          </View>
+
+          <View style={styles.summaryBubbleGrid}>
+            {summaryCards.map((card) => {
+              const toneStyle = getSummaryToneStyle(card.tone);
+              return (
+                <Pressable
+                  key={card.key}
+                  onPress={() => setSelectedSummaryMetric(card.key)}
+                  style={styles.summaryBubbleCard}
+                >
+                  <View style={styles.summaryBubbleHeader}>
+                    <View
+                      style={[
+                        styles.summaryBubbleIconWrap,
+                        { backgroundColor: toneStyle.iconBackground },
+                      ]}
+                    >
+                      <Text style={[styles.summaryBubbleIcon, { color: toneStyle.iconColor }]}>
+                        {card.icon}
+                      </Text>
+                    </View>
+                    <Text style={styles.summaryBubbleLabel}>{card.label}</Text>
+                  </View>
+                  <Text style={styles.summaryBubbleValue}>{card.value}</Text>
+                  {card.meta ? <Text style={styles.summaryBubbleMeta}>{card.meta}</Text> : null}
+                </Pressable>
+              );
+            })}
           </View>
 
           <View style={styles.taxReliefCard}>
@@ -924,6 +1150,49 @@ export function DashboardScreen() {
         onClose={() => setActiveBillClaim(null)}
         onSubmit={handleSubmitBillClaim}
       />
+      <Modal
+        visible={quickViewConfig !== null}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setSelectedSummaryMetric(null)}
+      >
+        <View style={styles.quickViewBackdrop}>
+          <View style={styles.quickViewModal}>
+            <Pressable
+              onPress={() => setSelectedSummaryMetric(null)}
+              style={styles.quickViewCloseButton}
+              accessibilityLabel="Close quick view"
+            >
+              <Text style={styles.quickViewCloseText}>×</Text>
+            </Pressable>
+            <Text style={styles.quickViewTitle}>{quickViewConfig?.title ?? ""}</Text>
+            <Text style={styles.quickViewSubtitle}>{quickViewConfig?.subtitle ?? ""}</Text>
+            <View style={styles.quickViewTableHeader}>
+              <Text style={[styles.quickViewHeaderText, styles.quickViewDateCol]}>Date</Text>
+              <Text style={[styles.quickViewHeaderText, styles.quickViewBrandCol]}>Brand</Text>
+              <Text style={[styles.quickViewHeaderText, styles.quickViewProductCol]}>Product</Text>
+              <Text style={[styles.quickViewHeaderText, styles.quickViewAmountCol]}>Amount</Text>
+            </View>
+            <ScrollView style={styles.quickViewRowsWrap}>
+              {(quickViewConfig?.rows ?? []).map((row) => (
+                <View key={row.id} style={styles.quickViewRow}>
+                  <Text style={[styles.quickViewCellText, styles.quickViewDateCol]}>{row.date}</Text>
+                  <Text style={[styles.quickViewCellText, styles.quickViewBrandCol]} numberOfLines={1}>
+                    {row.brand}
+                  </Text>
+                  <View style={styles.quickViewProductCol}>
+                    <Text style={styles.quickViewCellText} numberOfLines={1}>
+                      {row.product}
+                    </Text>
+                    {row.note ? <Text style={styles.quickViewNoteText}>{row.note}</Text> : null}
+                  </View>
+                  <Text style={[styles.quickViewCellText, styles.quickViewAmountCol]}>{row.amount}</Text>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -1103,6 +1372,55 @@ const styles = StyleSheet.create({
     color: colors.webLandingSubtext,
     fontSize: 16,
     lineHeight: 22,
+  },
+  summaryBubbleGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  summaryBubbleCard: {
+    width: "100%",
+    borderRadius: radii.xl,
+    borderWidth: 1,
+    borderColor: colors.authBorder,
+    backgroundColor: colors.authSurface,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    gap: 4,
+  },
+  summaryBubbleHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  summaryBubbleIconWrap: {
+    width: 24,
+    height: 24,
+    borderRadius: radii.pill,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  summaryBubbleIcon: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  summaryBubbleLabel: {
+    flex: 1,
+    color: "#6C7483",
+    fontSize: 11,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  summaryBubbleValue: {
+    color: colors.webLandingText,
+    fontSize: 33,
+    fontWeight: "800",
+  },
+  summaryBubbleMeta: {
+    color: colors.webLandingSubtext,
+    fontSize: 12,
+    lineHeight: 17,
   },
   tabRow: {
     flexDirection: "row",
@@ -1426,5 +1744,114 @@ const styles = StyleSheet.create({
     color: "#6A7383",
     fontSize: 16,
     fontWeight: "700",
+  },
+  quickViewBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(9,20,45,0.48)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: spacing.md,
+  },
+  quickViewModal: {
+    width: "100%",
+    maxWidth: 1040,
+    maxHeight: "88%",
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.authBorderStrong,
+    backgroundColor: colors.authSurface,
+    padding: spacing.lg,
+  },
+  quickViewCloseButton: {
+    position: "absolute",
+    top: spacing.md,
+    right: spacing.md,
+    width: 28,
+    height: 28,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.authBrand,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFEFF1",
+    zIndex: 2,
+  },
+  quickViewCloseText: {
+    color: colors.authBrand,
+    fontSize: 18,
+    lineHeight: 20,
+    fontWeight: "700",
+  },
+  quickViewTitle: {
+    color: colors.webLandingText,
+    fontSize: 40,
+    fontWeight: "800",
+    letterSpacing: -0.8,
+    marginBottom: spacing.xs,
+    paddingRight: spacing.xxl,
+  },
+  quickViewSubtitle: {
+    color: colors.webLandingSubtext,
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: spacing.md,
+  },
+  quickViewTableHeader: {
+    borderRadius: radii.md,
+    backgroundColor: "#F4F6FA",
+    borderWidth: 1,
+    borderColor: colors.authBorder,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  quickViewHeaderText: {
+    color: "#667086",
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  quickViewRowsWrap: {
+    marginTop: spacing.xs,
+  },
+  quickViewRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.authBorder,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  quickViewCellText: {
+    color: colors.webLandingText,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  quickViewNoteText: {
+    color: colors.webLandingSubtext,
+    fontSize: 12,
+    marginTop: 1,
+  },
+  quickViewDateCol: {
+    width: 92,
+  },
+  quickViewBrandCol: {
+    width: 220,
+  },
+  quickViewProductCol: {
+    flex: 1,
+  },
+  quickViewAmountCol: {
+    width: 120,
+    textAlign: "right",
+    fontWeight: "700",
+  },
+  summaryBubbleCardDesktop: {
+    width: "19%",
+    minWidth: 170,
   },
 });
