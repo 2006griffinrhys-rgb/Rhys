@@ -1296,20 +1296,13 @@ export function DashboardScreen() {
                       ) : null}
                     </View>
                     <View style={styles.categoryActionRow}>
-                      <View style={styles.classificationBadge}>
-                        <Text style={styles.classificationBadgeText}>
-                          {item.classificationConfidenceLabel} confidence ·{" "}
-                          {item.classificationSource === "override" ? "manual" : "auto"}
-                        </Text>
-                      </View>
                       <Pressable
                         style={styles.recategorizeButton}
                         onPress={() => handleRecategorizeOpportunity(item)}
                       >
-                        <Text style={styles.recategorizeButtonText}>Re-categorize</Text>
+                        <Text style={styles.recategorizeButtonText}>Re-categorise</Text>
                       </Pressable>
                     </View>
-                    <Text style={styles.classificationReasonText}>{item.classificationReason}</Text>
 
                     <View style={[styles.recommendationBox, { borderColor: tone.cardBorder }]}>
                       <View style={[styles.recommendationIcon, { backgroundColor: tone.iconBackground }]}>
@@ -1636,6 +1629,7 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: "800",
     lineHeight: 26,
+    textAlign: "center",
   },
   summaryBubbleMeta: {
     color: colors.webLandingSubtext,
@@ -1777,29 +1771,12 @@ const styles = StyleSheet.create({
     lineHeight: 14,
     letterSpacing: 0.15,
   },
-  classificationBadge: {
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: "#D5DDEA",
-    backgroundColor: "#F6F8FC",
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 5,
-    alignSelf: "flex-start",
-  },
-  classificationBadgeText: {
-    color: "#4A5870",
-    fontSize: 10,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.35,
-  },
   categoryActionRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "flex-end",
     alignItems: "center",
     marginTop: 2,
     marginBottom: 2,
-    gap: spacing.sm,
   },
   recategorizeButton: {
     borderRadius: radii.pill,
@@ -1813,12 +1790,6 @@ const styles = StyleSheet.create({
     color: "#394861",
     fontSize: 11,
     fontWeight: "700",
-  },
-  classificationReasonText: {
-    color: "#5A667A",
-    fontSize: 11,
-    lineHeight: 15,
-    marginTop: -2,
   },
   metaBubbleText: {
     fontSize: 11,
@@ -1981,13 +1952,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     gap: spacing.md,
-    marginLeft: 56,
+    marginLeft: 40,
     marginTop: 0,
   },
   tipDotsRow: {
     flexDirection: "row",
     alignItems: "center",
-    alignSelf: "center",
     gap: 6,
   },
   tipDot: {
