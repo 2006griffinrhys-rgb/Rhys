@@ -133,6 +133,12 @@ export function ClaimsScreen() {
                           Estimated payout:{" "}
                           {formatCents(claim.estimatedPayoutCents, claim.estimatedPayoutCurrency)}
                         </Text>
+                        <Text style={styles.claimReason}>
+                          Reason of claim:{" "}
+                          {claim.issueDescription?.trim() && claim.issueDescription.trim().length > 0
+                            ? claim.issueDescription.trim()
+                            : "No reason provided yet."}
+                        </Text>
                         <Text style={styles.date}>Created {formatDate(claim.createdAt)}</Text>
                       </Card>
                     );
@@ -204,6 +210,12 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   reason: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: spacing.sm,
+  },
+  claimReason: {
     color: colors.textSecondary,
     fontSize: 13,
     lineHeight: 19,
