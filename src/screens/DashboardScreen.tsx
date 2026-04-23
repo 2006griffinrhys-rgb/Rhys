@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Alert, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { BillClaimDialog } from "@/components/BillClaimDialog";
 import { ProductClaimDialog } from "@/components/ProductClaimDialog";
 import { Screen } from "@/components/Screen";
@@ -987,15 +987,20 @@ export function DashboardScreen() {
   };
 
   const handleDeleteOpportunity = (item: ClaimOpportunity) => {
+    const applyDelete = () =>
+      setDismissedOpportunityIds((current) =>
+        current.includes(item.id) ? current : [...current, item.id],
+      );
+    if (Platform.OS === "web") {
+      applyDelete();
+      return;
+    }
     Alert.alert("Remove purchase bubble", "Hide this purchase bubble from your dashboard?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Remove",
         style: "destructive",
-        onPress: () =>
-          setDismissedOpportunityIds((current) =>
-            current.includes(item.id) ? current : [...current, item.id],
-          ),
+        onPress: applyDelete,
       },
     ]);
   };

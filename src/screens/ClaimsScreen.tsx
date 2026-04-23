@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Alert, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { Card } from "@/components/Card";
 import { EmptyState } from "@/components/EmptyState";
 import { Screen } from "@/components/Screen";
@@ -60,22 +60,38 @@ export function ClaimsScreen() {
   }, [chosenClaims]);
 
   const handleDeleteClaim = (claim: Claim) => {
+    const confirmDelete = async () => {
+      try {
+        deleteClaimById(claim.id);
+        setHiddenClaimIds((current) =>
+          current.includes(claim.id) ? current : [...current, claim.id],
+        );
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Could not delete claim.";
+        Alert.alert("Delete failed", message);
+      }
+    };
+
+    if (Platform.OS === "web") {
+      if (typeof globalThis.confirm === "function") {
+        const approved = globalThis.confirm("Remove this claim from the Claims page?");
+        if (approved) {
+          void confirmDelete();
+        }
+      } else {
+        void confirmDelete();
+      }
+      return;
+    }
+
     Alert.alert("Delete claim", "Remove this claim from the Claims page?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
         style: "destructive",
-        onPress: async () => {
-          try {
-            deleteClaimById(claim.id);
-            setHiddenClaimIds((current) =>
-              current.includes(claim.id) ? current : [...current, claim.id],
-            );
-          } catch (error) {
-            const message =
-              error instanceof Error ? error.message : "Could not delete claim.";
-            Alert.alert("Delete failed", message);
-          }
+        onPress: () => {
+          void confirmDelete();
         },
       },
     ]);

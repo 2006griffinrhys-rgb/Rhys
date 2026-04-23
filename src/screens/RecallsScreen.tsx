@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Alert, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { Card } from "@/components/Card";
 import { EmptyState } from "@/components/EmptyState";
 import { ProductClaimDialog } from "@/components/ProductClaimDialog";
@@ -138,19 +138,26 @@ export function RecallsScreen() {
   };
 
   const handleDeleteRecallBubble = (recall: Recall) => {
+    const removeRecall = () => {
+      setDismissedRecallIds((current) =>
+        current.includes(recall.id) ? current : [...current, recall.id],
+      );
+      if (activeRecall?.id === recall.id) {
+        setActiveRecall(null);
+      }
+    };
+
+    if (Platform.OS === "web") {
+      removeRecall();
+      return;
+    }
+
     Alert.alert("Delete recall bubble", "Remove this recall bubble from this page?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
         style: "destructive",
-        onPress: () => {
-          setDismissedRecallIds((current) =>
-            current.includes(recall.id) ? current : [...current, recall.id],
-          );
-          if (activeRecall?.id === recall.id) {
-            setActiveRecall(null);
-          }
-        },
+        onPress: removeRecall,
       },
     ]);
   };
