@@ -25,7 +25,7 @@
     },
     "android": {
       "versionCode": 1,
-      "package": "com.prooof.native",
+      "package": "com.prooof.app",
       "permissions": [
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.WAKE_LOCK"
