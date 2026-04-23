@@ -259,8 +259,14 @@ function mapReceipt(row: UnknownRow): Receipt {
   const warrantySource =
     normalizedWarrantySource === "invoice" ||
     normalizedWarrantySource === "supplier-site" ||
-    normalizedWarrantySource === "supplier site"
-      ? (normalizedWarrantySource === "supplier site" ? "supplier-site" : normalizedWarrantySource)
+    normalizedWarrantySource === "supplier site" ||
+    normalizedWarrantySource === "marketplace-policy" ||
+    normalizedWarrantySource === "marketplace policy"
+      ? (normalizedWarrantySource === "supplier site"
+          ? "supplier-site"
+          : normalizedWarrantySource === "marketplace policy"
+            ? "marketplace-policy"
+            : normalizedWarrantySource)
       : undefined;
 
   return {

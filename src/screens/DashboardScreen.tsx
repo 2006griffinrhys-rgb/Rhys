@@ -289,6 +289,14 @@ const GROCERY_KEYWORDS = [
   "meal",
 ];
 
+const MARKETPLACE_MERCHANT_PATTERNS = [
+  "amazon",
+  "ebay",
+  "temu",
+  "aliexpress",
+  "alibaba",
+];
+
 const SERVICE_KEYWORDS = [
   "service",
   "subscription",
@@ -366,6 +374,10 @@ function isLikelyNonClaimableGroceries(base: string, merchant: string): boolean 
   return (hasGroceryMerchantPattern || hasGroceryKeyword) && !hasClaimableGoodsSignal;
 }
 
+function isMarketplaceMerchant(merchant: string): boolean {
+  return MARKETPLACE_MERCHANT_PATTERNS.some((pattern) => merchant.includes(pattern));
+}
+
 function formatMerchantBubbleLabel(merchant: string): string {
   return merchant
     .trim()
@@ -404,6 +416,9 @@ function classifyOpportunityCategory(input: {
   const merchant = input.merchant.toLowerCase();
   if (isLikelyNonClaimableGroceries(base, merchant)) {
     return null;
+  }
+  if (isMarketplaceMerchant(merchant)) {
+    goodsMatches.push("merchant-marketplace-pattern");
   }
   if (merchant.includes("uber") || merchant.includes("trainline") || merchant.includes("airbnb")) {
     servicesMatches.push("merchant-travel-pattern");
@@ -537,15 +552,24 @@ function getSupplierWarrantyWindowMonths(subtype: OpportunitySubtype, tone: Clai
   return 12;
 }
 
-function inferMerchantWarrantyMonths(merchant: string, subtype: OpportunitySubtype): number | undefined {
+function inferMerchantWarranty(merchant: string, subtype: OpportunitySubtype):
+  | { months: number; source: "supplier-site" | "marketplace-policy" }
+  | undefined {
   const normalized = merchant.toLowerCase();
   if (normalized.includes("john lewis")) {
     // Known policy baseline: many electricals sold by John Lewis include 24-month cover.
-    if (subtype === "electronics") return 24;
-    return 12;
+    if (subtype === "electronics") return { months: 24, source: "supplier-site" };
+    return { months: 12, source: "supplier-site" };
   }
   if (normalized.includes("currys") || normalized.includes("argos")) {
-    if (subtype === "electronics") return 24;
+    if (subtype === "electronics") return { months: 24, source: "supplier-site" };
+  }
+  if (isMarketplaceMerchant(normalized)) {
+    if (subtype === "groceries") return undefined;
+    if (subtype === "electronics") {
+      return { months: 12, source: "marketplace-policy" };
+    }
+    return { months: 6, source: "marketplace-policy" };
   }
   return undefined;
 }
@@ -554,7 +578,7 @@ type WarrantySummary = {
   withinSupplierWarranty: boolean;
   hasKnownWarranty: boolean;
   knownWarrantyMonths?: number;
-  knownWarrantySource?: "invoice" | "supplier-site";
+  knownWarrantySource?: "invoice" | "supplier-site" | "marketplace-policy";
   fallbackWarrantyMonths?: number;
 };
 
@@ -564,7 +588,7 @@ function resolveWarrantySummary(input: {
   subtype: OpportunitySubtype;
   purchaseDate: string;
   supplierWarrantyMonths?: number;
-  supplierWarrantySource?: "invoice" | "supplier-site";
+  supplierWarrantySource?: "invoice" | "supplier-site" | "marketplace-policy";
 }): WarrantySummary {
   const ageMonths = getAgeInMonths(input.purchaseDate);
   if (input.tone !== "goods") {
@@ -579,15 +603,16 @@ function resolveWarrantySummary(input: {
     typeof input.supplierWarrantyMonths === "number" && input.supplierWarrantyMonths > 0
       ? input.supplierWarrantyMonths
       : undefined;
-  const inferredMerchantWarrantyMonths = inferMerchantWarrantyMonths(input.merchant, input.subtype);
-  const effectiveKnownWarrantyMonths = knownWarrantyMonths ?? inferredMerchantWarrantyMonths;
+  const inferredMerchantWarranty = inferMerchantWarranty(input.merchant, input.subtype);
+  const effectiveKnownWarrantyMonths = knownWarrantyMonths ?? inferredMerchantWarranty?.months;
   const effectiveKnownWarrantySource =
     input.supplierWarrantySource ??
-    (inferredMerchantWarrantyMonths ? "supplier-site" : undefined);
+    inferredMerchantWarranty?.source;
   const hasKnownWarranty = Boolean(
     effectiveKnownWarrantyMonths &&
       (effectiveKnownWarrantySource === "invoice" ||
-        effectiveKnownWarrantySource === "supplier-site"),
+        effectiveKnownWarrantySource === "supplier-site" ||
+        effectiveKnownWarrantySource === "marketplace-policy"),
   );
 
   if (hasKnownWarranty && effectiveKnownWarrantyMonths && effectiveKnownWarrantySource) {
@@ -607,11 +632,19 @@ function resolveWarrantySummary(input: {
   };
 }
 
-function buildKnownWarrantyLabel(months: number, source: "invoice" | "supplier-site"): string {
+function buildKnownWarrantyLabel(
+  months: number,
+  source: "invoice" | "supplier-site" | "marketplace-policy",
+): string {
   const years = months / 12;
   const durationLabel =
     Number.isInteger(years) && years >= 1 ? `${years}yr` : `${months}m`;
-  const sourceLabel = source === "invoice" ? "from invoice" : "supplier site";
+  const sourceLabel =
+    source === "invoice"
+      ? "from invoice"
+      : source === "supplier-site"
+        ? "supplier policy"
+        : "marketplace estimate";
   return `Under warranty · ${durationLabel} (${sourceLabel})`;
 }
 
@@ -635,8 +668,8 @@ function getRecommendationForOpportunity(
       warrantySummary.knownWarrantyMonths &&
       warrantySummary.knownWarrantySource
         ? withinSupplierWarranty
-          ? `Confirmed within ${warrantySummary.knownWarrantyMonths}-month supplier warranty (${warrantySummary.knownWarrantySource === "invoice" ? "from invoice" : "supplier site"}).`
-          : `Confirmed outside ${warrantySummary.knownWarrantyMonths}-month supplier warranty (${warrantySummary.knownWarrantySource === "invoice" ? "from invoice" : "supplier site"}).`
+          ? `Confirmed within ${warrantySummary.knownWarrantyMonths}-month supplier warranty (${warrantySummary.knownWarrantySource === "invoice" ? "from invoice" : warrantySummary.knownWarrantySource === "supplier-site" ? "supplier policy" : "marketplace estimate"}).`
+          : `Confirmed outside ${warrantySummary.knownWarrantyMonths}-month supplier warranty (${warrantySummary.knownWarrantySource === "invoice" ? "from invoice" : warrantySummary.knownWarrantySource === "supplier-site" ? "supplier policy" : "marketplace estimate"}).`
         : warrantySummary.fallbackWarrantyMonths
           ? withinSupplierWarranty
             ? `Likely within a typical ${warrantySummary.fallbackWarrantyMonths}-month supplier warranty window (confirm online).`
