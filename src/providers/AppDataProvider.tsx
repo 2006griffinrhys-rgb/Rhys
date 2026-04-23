@@ -197,6 +197,14 @@ const DEFAULT_INBOX_PROVIDERS: EmailProviderId[] = [
   "exchange",
   "work-imap",
 ];
+const PROVIDER_LABELS: Record<EmailProviderId, string> = {
+  gmail: "Gmail",
+  yahoo: "Yahoo Mail",
+  outlook: "Outlook / Hotmail / Live",
+  office365: "Microsoft 365 / Exchange Online",
+  exchange: "Microsoft Exchange (on-prem/work)",
+  "work-imap": "Work IMAP / Custom Domains",
+};
 
 const MOCK_FX_RATES_TO_GBP: Record<SupportedCurrency, number> = {
   GBP: 1,
@@ -1076,7 +1084,9 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     if (inboxScanProviders.length === DEFAULT_INBOX_PROVIDERS.length) {
       return "All linked providers: Gmail, Yahoo, Outlook, Office 365, Exchange/IMAP work inboxes";
     }
-    return `Selected providers: ${inboxScanProviders.join(", ")}`;
+    return `Selected providers: ${inboxScanProviders
+      .map((provider) => PROVIDER_LABELS[provider] ?? provider)
+      .join(", ")}`;
   }, [inboxScanProviders]);
 
   const activePlanPriceCents = useMemo(
