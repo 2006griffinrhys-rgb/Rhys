@@ -1633,9 +1633,9 @@ const styles = StyleSheet.create({
   },
   summaryBubbleValue: {
     color: colors.webLandingText,
-    fontSize: 34,
+    fontSize: 22,
     fontWeight: "800",
-    lineHeight: 36,
+    lineHeight: 26,
   },
   summaryBubbleMeta: {
     color: colors.webLandingSubtext,
@@ -1982,11 +1982,12 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: spacing.md,
     marginLeft: 56,
-    marginTop: -2,
+    marginTop: 0,
   },
   tipDotsRow: {
     flexDirection: "row",
     alignItems: "center",
+    alignSelf: "center",
     gap: 6,
   },
   tipDot: {
