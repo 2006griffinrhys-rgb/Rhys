@@ -342,6 +342,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const autoScanInFlightRef = useRef(false);
   const claimAutomationTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const claimAutomationInFlightRef = useRef(false);
+  const preferredCurrencyHydratedRef = useRef(false);
 
   const loadData = useCallback(async () => {
     setError(null);
@@ -362,8 +363,19 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       if (typeof user.user_metadata?.keep_access_until_period_end === "boolean") {
         setKeepAccessUntilPeriodEndState(user.user_metadata.keep_access_until_period_end);
       }
-      if (typeof user.user_metadata?.preferred_currency === "string") {
-        setPreferredCurrencyState(normalizeCurrency(user.user_metadata.preferred_currency));
+      const metadataPreferredCurrency =
+        typeof user.user_metadata?.preferred_currency === "string"
+          ? normalizeCurrency(user.user_metadata.preferred_currency)
+          : null;
+      const effectiveCurrency =
+        metadataPreferredCurrency && !preferredCurrencyHydratedRef.current
+          ? metadataPreferredCurrency
+          : preferredCurrency;
+      if (metadataPreferredCurrency && !preferredCurrencyHydratedRef.current) {
+        preferredCurrencyHydratedRef.current = true;
+        if (metadataPreferredCurrency !== preferredCurrency) {
+          setPreferredCurrencyState(metadataPreferredCurrency);
+        }
       }
       const snapshot = await fetchSnapshotForUser(user.id);
       const nowIso = new Date().toISOString();
@@ -372,14 +384,14 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         stats: {
           ...computeStats(snapshot),
           totalSpendCents: snapshot.receipts.reduce(
-            (sum, receipt) => sum + convertCents(receipt.totalCents, receipt.currency, preferredCurrency),
+            (sum, receipt) => sum + convertCents(receipt.totalCents, receipt.currency, effectiveCurrency),
             0,
           ),
         },
         receipts: snapshot.receipts.map((receipt) => ({
           ...receipt,
-          totalCents: convertCents(receipt.totalCents, receipt.currency, preferredCurrency),
-          currency: preferredCurrency,
+          totalCents: convertCents(receipt.totalCents, receipt.currency, effectiveCurrency),
+          currency: effectiveCurrency,
           supplierWarrantySource: receipt.supplierWarrantySource,
           supplierWarrantyMonths: receipt.supplierWarrantyMonths,
         })),
@@ -388,9 +400,9 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           estimatedPayoutCents: convertCents(
             recall.estimatedPayoutCents,
             recall.estimatedPayoutCurrency,
-            preferredCurrency,
+            effectiveCurrency,
           ),
-          estimatedPayoutCurrency: preferredCurrency,
+          estimatedPayoutCurrency: effectiveCurrency,
         })),
         claims: snapshot.claims.map((claim) => {
           const responseStatus = detectClaimResponseStatus(claim);
@@ -409,9 +421,9 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
             estimatedPayoutCents: convertCents(
               claim.estimatedPayoutCents,
               claim.estimatedPayoutCurrency,
-              preferredCurrency,
+              effectiveCurrency,
             ),
-            estimatedPayoutCurrency: preferredCurrency,
+            estimatedPayoutCurrency: effectiveCurrency,
             followUpEnabled: claim.followUpEnabled ?? true,
             followUpIntervalDays,
             followUpCount,
@@ -439,7 +451,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [user?.id]);
+  }, [preferredCurrency, user?.id]);
 
   useEffect(() => {
     setLoading(true);
@@ -1068,8 +1080,24 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   }, [inboxScanProviders]);
 
   const activePlanPriceCents = useMemo(
-    () => getPriceForInterval(userPlan, billingInterval),
-    [billingInterval, userPlan],
+    () => convertCents(getPriceForInterval(userPlan, billingInterval), "GBP", preferredCurrency),
+    [billingInterval, preferredCurrency, userPlan],
+  );
+  const convertedPlanPricing = useMemo<Record<BillingTier, PlanPricing>>(
+    () => ({
+      free: PLAN_PRICING.free,
+      premium: {
+        ...PLAN_PRICING.premium,
+        monthlyPriceCents: convertCents(PLAN_PRICING.premium.monthlyPriceCents, "GBP", preferredCurrency),
+        yearlyPriceCents: convertCents(PLAN_PRICING.premium.yearlyPriceCents, "GBP", preferredCurrency),
+      },
+      unlimited: {
+        ...PLAN_PRICING.unlimited,
+        monthlyPriceCents: convertCents(PLAN_PRICING.unlimited.monthlyPriceCents, "GBP", preferredCurrency),
+        yearlyPriceCents: convertCents(PLAN_PRICING.unlimited.yearlyPriceCents, "GBP", preferredCurrency),
+      },
+    }),
+    [preferredCurrency],
   );
 
   const value = useMemo<AppDataContextValue>(
@@ -1083,7 +1111,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       billingInterval,
       keepAccessUntilPeriodEnd,
       planFlags,
-      planPricing: PLAN_PRICING,
+      planPricing: convertedPlanPricing,
       claimsUsed,
       claimsRemaining,
       claimLimitReached,
@@ -1123,6 +1151,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       billingInterval,
       keepAccessUntilPeriodEnd,
       planFlags,
+      convertedPlanPricing,
       claimsUsed,
       claimsRemaining,
       claimLimitReached,

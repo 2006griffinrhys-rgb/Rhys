@@ -81,10 +81,10 @@ export function SettingsScreen() {
     const pricing = planPricing[plan];
     const priceLabel =
       plan === "free"
-        ? "£0.00"
+        ? formatCents(0, preferredCurrency)
         : billingInterval === "yearly"
-          ? `${formatCents(pricing.yearlyPriceCents, "GBP")} / year`
-          : `${formatCents(pricing.monthlyPriceCents, "GBP")} / month`;
+          ? `${formatCents(pricing.yearlyPriceCents, preferredCurrency)} / year`
+          : `${formatCents(pricing.monthlyPriceCents, preferredCurrency)} / month`;
     return (
       <Pressable
         key={plan}
@@ -235,11 +235,12 @@ export function SettingsScreen() {
             </View>
             <View style={styles.planGroup}>
               {renderPlanButton("free", "Free · 5 claims/mo · no bill monitoring")}
-              {renderPlanButton("premium", "Premium £4.99 · 20 claims/mo + bill alerts + chasing")}
-              {renderPlanButton("unlimited", "Unlimited £9.99 · unlimited claims + priority")}
+              {renderPlanButton("premium", "Premium · 20 claims/mo + bill alerts + chasing")}
+              {renderPlanButton("unlimited", "Unlimited · unlimited claims + priority")}
             </View>
             <Text style={styles.scanMeta}>
-              Active plan price: {formatCents(activePlanPriceCents, "GBP")} {billingInterval === "yearly" ? "per year" : "per month"}
+              Active plan price: {formatCents(activePlanPriceCents, preferredCurrency)}{" "}
+              {billingInterval === "yearly" ? "per year" : "per month"}
             </Text>
             <Pressable
               style={[styles.toggleRow, keepAccessUntilPeriodEnd && styles.toggleRowActive]}

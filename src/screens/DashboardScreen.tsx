@@ -710,7 +710,7 @@ export function DashboardScreen() {
                   ? "Upgrade"
                   : `${billingInterval === "yearly" ? "Yearly" : "Monthly"} ${formatCents(
                       activePlanPriceCents,
-                      "GBP",
+                      preferredCurrency,
                     )}`}
               </Text>
             </View>
