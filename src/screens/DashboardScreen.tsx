@@ -628,7 +628,21 @@ export function DashboardScreen() {
     () => opportunities.filter((item) => item.tone === "goods" && !item.hasKnownWarranty),
     [opportunities],
   );
-  const activeRecallRows = useMemo(() => recalls.filter((recall) => recall.isActive), [recalls]);
+  const activeRecallRows = useMemo(
+    () =>
+      recalls.filter((recall) => {
+        if (!recall.isActive) return false;
+        const normalized = recall.source.toLowerCase();
+        const hasManufacturerKeyword = ["manufacturer", "maker", "oem", "brand", "factory"].some((keyword) =>
+          normalized.includes(keyword),
+        );
+        const hasNonManufacturerKeyword = ["fsa", "regulator", "government", "authority"].some((keyword) =>
+          normalized.includes(keyword),
+        );
+        return hasManufacturerKeyword && !hasNonManufacturerKeyword;
+      }),
+    [recalls],
+  );
   const allOwnedRows = useMemo<QuickViewRow[]>(
     () =>
       opportunities.map((item) => ({
