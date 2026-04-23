@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { Card } from "@/components/Card";
 import { EmptyState } from "@/components/EmptyState";
 import { ProductClaimDialog } from "@/components/ProductClaimDialog";
@@ -52,6 +52,8 @@ function getClaimStateBadgeStyle(state: RecallClaimState) {
 }
 
 export function RecallsScreen() {
+  const { width } = useWindowDimensions();
+  const isMobile = width < 760;
   const { user } = useAuth();
   const {
     recalls,
@@ -168,72 +170,79 @@ export function RecallsScreen() {
               subtitle="This tab only shows products automatically identified as recalled by the manufacturer."
             />
           ) : (
-            manufacturerRecalls.map((recall) => {
-              const claimState = resolveRecallClaimState(recall.id, claims);
-              const badge = getClaimStateBadgeStyle(claimState);
-              return (
-                <Card key={recall.id}>
-                  <View style={styles.itemHeader}>
-                    <View style={styles.itemHeadContent}>
-                      <Text style={styles.itemTitle}>{recall.productName}</Text>
-                      <Text style={styles.itemMeta}>
-                        {recall.source} • {formatDate(recall.publishedAt)}
-                      </Text>
-                    </View>
-                    <View style={styles.itemHeaderActions}>
-                      <Pressable
-                        style={styles.deleteButton}
-                        onPress={() => handleDeleteRecallBubble(recall)}
-                        accessibilityLabel="Delete recall bubble"
-                      >
-                        <Text style={styles.deleteButtonText}>🗑</Text>
-                      </Pressable>
-                      <View
-                        style={[
-                          styles.claimStateBadge,
-                          {
-                            backgroundColor: badge.backgroundColor,
-                            borderColor: badge.borderColor,
-                          },
-                        ]}
-                      >
-                        <Text style={[styles.claimStateText, { color: badge.color }]}>{claimState}</Text>
+            <View style={styles.grid}>
+              {manufacturerRecalls.map((recall) => {
+                const claimState = resolveRecallClaimState(recall.id, claims);
+                const badge = getClaimStateBadgeStyle(claimState);
+                return (
+                  <View
+                    key={recall.id}
+                    style={[styles.recallCard, !isMobile && styles.recallCardDesktop]}
+                  >
+                    <Card>
+                      <View style={styles.itemHeader}>
+                      <View style={styles.itemHeadContent}>
+                        <Text style={styles.itemTitle}>{recall.productName}</Text>
+                        <Text style={styles.itemMeta}>
+                          {recall.source} • {formatDate(recall.publishedAt)}
+                        </Text>
+                      </View>
+                      <View style={styles.itemHeaderActions}>
+                        <Pressable
+                          style={styles.deleteButton}
+                          onPress={() => handleDeleteRecallBubble(recall)}
+                          accessibilityLabel="Delete recall bubble"
+                        >
+                          <Text style={styles.deleteButtonText}>🗑</Text>
+                        </Pressable>
+                        <View
+                          style={[
+                            styles.claimStateBadge,
+                            {
+                              backgroundColor: badge.backgroundColor,
+                              borderColor: badge.borderColor,
+                            },
+                          ]}
+                        >
+                          <Text style={[styles.claimStateText, { color: badge.color }]}>{claimState}</Text>
+                        </View>
                       </View>
                     </View>
+                      <Text style={styles.itemBody}>{recall.details}</Text>
+                      <Pressable
+                        onPress={() => void handleCreateClaim(recall.id)}
+                        style={[
+                          styles.claimButton,
+                          (claimState === "Pending" || claimState === "Successful") &&
+                            styles.claimButtonDisabled,
+                          claimLimitReached &&
+                            claimTier !== "unlimited" &&
+                            styles.claimButtonDisabled,
+                        ]}
+                      >
+                        <Text style={styles.claimButtonText}>
+                          {claimState === "Pending"
+                            ? "Claim pending"
+                            : claimState === "Successful"
+                              ? "Claim successful"
+                              : claimLimitReached && claimTier !== "unlimited"
+                                ? "Upgrade to file claim"
+                                : claimState === "Failed"
+                                  ? `Retry claim (${formatCents(
+                                      recall.estimatedPayoutCents,
+                                      recall.estimatedPayoutCurrency,
+                                    )})`
+                                  : `Create claim (${formatCents(
+                                      recall.estimatedPayoutCents,
+                                      recall.estimatedPayoutCurrency,
+                                    )})`}
+                        </Text>
+                      </Pressable>
+                    </Card>
                   </View>
-                  <Text style={styles.itemBody}>{recall.details}</Text>
-                  <Pressable
-                    onPress={() => void handleCreateClaim(recall.id)}
-                    style={[
-                      styles.claimButton,
-                      (claimState === "Pending" || claimState === "Successful") &&
-                        styles.claimButtonDisabled,
-                      claimLimitReached &&
-                        claimTier !== "unlimited" &&
-                        styles.claimButtonDisabled,
-                    ]}
-                  >
-                    <Text style={styles.claimButtonText}>
-                      {claimState === "Pending"
-                        ? "Claim pending"
-                        : claimState === "Successful"
-                          ? "Claim successful"
-                          : claimLimitReached && claimTier !== "unlimited"
-                            ? "Upgrade to file claim"
-                            : claimState === "Failed"
-                              ? `Retry claim (${formatCents(
-                                  recall.estimatedPayoutCents,
-                                  recall.estimatedPayoutCurrency,
-                                )})`
-                              : `Create claim (${formatCents(
-                                  recall.estimatedPayoutCents,
-                                  recall.estimatedPayoutCurrency,
-                                )})`}
-                    </Text>
-                  </Pressable>
-                </Card>
-              );
-            })
+                );
+              })}
+            </View>
           )}
         </View>
       </View>
@@ -270,6 +279,19 @@ const styles = StyleSheet.create({
     maxWidth: 1120,
     gap: spacing.md,
     paddingBottom: spacing.lg,
+  },
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  recallCard: {
+    width: "100%",
+    maxWidth: 360,
+    borderRadius: 16,
+  },
+  recallCardDesktop: {
+    width: "31.5%",
   },
   itemHeader: {
     flexDirection: "row",

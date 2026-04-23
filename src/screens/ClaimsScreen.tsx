@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { Card } from "@/components/Card";
 import { EmptyState } from "@/components/EmptyState";
 import { Screen } from "@/components/Screen";
@@ -31,6 +31,8 @@ function getStateStyles(state: ClaimDisplayState) {
 
 export function ClaimsScreen() {
   const { claims, refreshing, refresh, deleteClaimById } = useAppData();
+  const { width } = useWindowDimensions();
+  const isMobile = width < 760;
   const [hiddenClaimIds, setHiddenClaimIds] = useState<string[]>([]);
   const chosenClaims = useMemo(
     () =>
@@ -102,47 +104,59 @@ export function ClaimsScreen() {
                   <Text style={styles.groupTitle}>
                     {state} ({rows.length})
                   </Text>
-                  {rows.map((claim) => {
-                    const stateStyles = getStateStyles(state);
-                    return (
-                      <Card key={claim.id}>
-                        <View style={styles.row}>
-                          <Text style={styles.name}>{claim.productName}</Text>
-                          <Pressable
-                            style={styles.deleteButton}
-                            onPress={() => handleDeleteClaim(claim)}
-                            accessibilityLabel="Delete claim"
-                          >
-                            <Text style={styles.deleteButtonText}>🗑</Text>
-                          </Pressable>
-                          <View
-                            style={[
-                              styles.stateBadge,
-                              {
-                                backgroundColor: stateStyles.backgroundColor,
-                                borderColor: stateStyles.borderColor,
-                              },
-                            ]}
-                          >
-                            <Text style={[styles.stateBadgeText, { color: stateStyles.textColor }]}>
-                              {state}
-                            </Text>
+                  <View style={styles.claimGrid}>
+                    {rows.map((claim) => {
+                      const stateStyles = getStateStyles(state);
+                      return (
+                        <View
+                          key={claim.id}
+                          style={[
+                            styles.claimCard,
+                            !isMobile && styles.claimCardDesktop,
+                          ]}
+                        >
+                          <Card>
+                          <View style={styles.row}>
+                            <Text style={styles.name}>{claim.productName}</Text>
+                            <View style={styles.rowActions}>
+                              <Pressable
+                                style={styles.deleteButton}
+                                onPress={() => handleDeleteClaim(claim)}
+                                accessibilityLabel="Delete claim"
+                              >
+                                <Text style={styles.deleteButtonText}>🗑</Text>
+                              </Pressable>
+                              <View
+                                style={[
+                                  styles.stateBadge,
+                                  {
+                                    backgroundColor: stateStyles.backgroundColor,
+                                    borderColor: stateStyles.borderColor,
+                                  },
+                                ]}
+                              >
+                                <Text style={[styles.stateBadgeText, { color: stateStyles.textColor }]}>
+                                  {state}
+                                </Text>
+                              </View>
+                            </View>
                           </View>
+                          <Text style={styles.reason}>
+                            Estimated payout:{" "}
+                            {formatCents(claim.estimatedPayoutCents, claim.estimatedPayoutCurrency)}
+                          </Text>
+                          <Text style={styles.claimReason}>
+                            Reason of claim:{" "}
+                            {claim.issueDescription?.trim() && claim.issueDescription.trim().length > 0
+                              ? claim.issueDescription.trim()
+                              : "No reason provided yet."}
+                          </Text>
+                          <Text style={styles.date}>Created {formatDate(claim.createdAt)}</Text>
+                          </Card>
                         </View>
-                        <Text style={styles.reason}>
-                          Estimated payout:{" "}
-                          {formatCents(claim.estimatedPayoutCents, claim.estimatedPayoutCurrency)}
-                        </Text>
-                        <Text style={styles.claimReason}>
-                          Reason of claim:{" "}
-                          {claim.issueDescription?.trim() && claim.issueDescription.trim().length > 0
-                            ? claim.issueDescription.trim()
-                            : "No reason provided yet."}
-                        </Text>
-                        <Text style={styles.date}>Created {formatDate(claim.createdAt)}</Text>
-                      </Card>
-                    );
-                  })}
+                      );
+                    })}
+                  </View>
                 </View>
               );
             })
@@ -168,6 +182,22 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginBottom: spacing.xs,
   },
+  claimGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  claimCard: {
+    width: "100%",
+    maxWidth: 360,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.authBorder,
+    backgroundColor: colors.authSurface,
+  },
+  claimCardDesktop: {
+    width: "31.5%",
+  },
   groupTitle: {
     color: colors.textPrimary,
     fontSize: 13,
@@ -179,9 +209,13 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
     marginBottom: spacing.sm,
     gap: spacing.sm,
+  },
+  rowActions: {
+    alignItems: "flex-end",
+    gap: spacing.xs,
   },
   name: {
     color: colors.textPrimary,
