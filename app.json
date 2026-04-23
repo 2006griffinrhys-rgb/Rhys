@@ -37,7 +37,8 @@
     },
     "plugins": [
       "expo-background-fetch",
-      "expo-task-manager"
+      "expo-task-manager",
+      "@stripe/stripe-react-native"
     ],
     "extra": {
       "eas": {

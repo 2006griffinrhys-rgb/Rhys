@@ -172,6 +172,8 @@ Set these env vars in `.env`:
 - `EXPO_PUBLIC_STRIPE_BILLING_ENABLED=true`
 - `EXPO_PUBLIC_SUPPORT_URL=https://www.prooof.app`
 - `EXPO_PUBLIC_STRIPE_PORTAL_URL=` (optional fallback)
+- `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY=` (required for native Apple Pay / Google Pay)
+- `EXPO_PUBLIC_STRIPE_MERCHANT_IDENTIFIER=` (required for iOS Apple Pay, e.g. `merchant.com.prooof.app`)
 
 Expected Supabase Edge Functions:
 
@@ -186,6 +188,7 @@ Implemented billing behavior:
 - Free plan: 5 claims/month, no bill monitoring.
 - Premium: 20 claims/month + bill alerts + chasing.
 - Unlimited: unlimited claims + priority support.
+- iOS-native Apple Pay attempt for paid-plan upgrade flow with Stripe Checkout fallback when unavailable/not configured.
 
 ## Background scanning (app closed / OS-managed)
 

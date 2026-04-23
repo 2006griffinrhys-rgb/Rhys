@@ -1,4 +1,4 @@
-import { Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Linking, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { Card } from "@/components/Card";
 import { Screen } from "@/components/Screen";
 import { SectionTitle } from "@/components/SectionTitle";
@@ -37,6 +37,8 @@ export function SettingsScreen() {
     planPricing,
     activePlanPriceCents,
     startSubscriptionCheckout,
+    startApplePayCheckout,
+    isApplePayAvailable,
     openStripeBillingPortal,
     downgradeToFreePlan,
     scheduledDowngradeAt,
@@ -49,6 +51,8 @@ export function SettingsScreen() {
     inboxScanLastCount,
   } = useAppData();
   const envSummary = getEnvSummary();
+
+  const isApplePayFlow = Platform.OS === "ios";
 
   const handleSignOut = () => {
     Alert.alert("Sign out", "Are you sure you want to sign out?", [
@@ -105,6 +109,29 @@ export function SettingsScreen() {
 
   const handleUpgrade = async (plan: Exclude<BillingTier, "free">) => {
     try {
+      if (isApplePayFlow) {
+        const canPayWithApplePay = await isApplePayAvailable();
+        if (canPayWithApplePay) {
+          const result = await startApplePayCheckout(plan);
+          if (result.completed) {
+            Alert.alert("Plan updated", "Apple Pay payment completed and your plan was updated.");
+            return;
+          }
+          if (result.usedCheckoutFallback && result.checkoutUrl) {
+            const supported = await Linking.canOpenURL(result.checkoutUrl);
+            if (!supported) {
+              Alert.alert("Open billing failed", "Could not open Stripe checkout.");
+              return;
+            }
+            await Linking.openURL(result.checkoutUrl);
+            return;
+          }
+          if (result.reason === "cancelled") {
+            return;
+          }
+        }
+      }
+
       const result = await startSubscriptionCheckout(plan);
       if (result.isMock) {
         Alert.alert("Demo billing mode", "Stripe is not configured, so your plan was updated locally.");
@@ -216,6 +243,11 @@ export function SettingsScreen() {
 
           <Card>
             <Text style={styles.groupTitle}>Subscription</Text>
+            {isApplePayFlow ? (
+              <Text style={styles.scanMeta}>
+                Apple Pay enabled on iOS when device and Stripe configuration support it.
+              </Text>
+            ) : null}
             <Text style={styles.envLabel}>Billing interval</Text>
             <View style={styles.currencyRow}>
               {BILLING_INTERVALS.map((interval) => {
@@ -466,6 +498,13 @@ const styles = StyleSheet.create({
   },
   ghostButtonText: {
     color: colors.textPrimary,
+    fontWeight: "600",
+  },
+  applePayMeta: {
+    color: "#188450",
+    fontSize: 12,
+    marginBottom: spacing.xs,
+    lineHeight: 18,
     fontWeight: "600",
   },
   scanMeta: {

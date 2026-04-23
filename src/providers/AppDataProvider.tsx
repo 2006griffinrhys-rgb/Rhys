@@ -37,6 +37,10 @@ import {
   PLAN_PRICING,
   requestSubscriptionDowngrade,
 } from "@/services/billing";
+import {
+  isNativeApplePayAvailable,
+  startNativeApplePaySubscription,
+} from "@/services/nativePayments";
 import { useAuth } from "@/providers/AuthProvider";
 import { env } from "@/services/env";
 import {
@@ -92,6 +96,14 @@ type AppDataContextValue = AppDataState & {
   setKeepAccessUntilPeriodEnd: (value: boolean) => void;
   setInboxScanProviders: (providers: EmailProviderId[]) => void;
   startSubscriptionCheckout: (plan: Exclude<BillingTier, "free">) => Promise<{ url: string; isMock: boolean }>;
+  startApplePayCheckout: (plan: Exclude<BillingTier, "free">) => Promise<{
+    completed: boolean;
+    reason?: "unsupported" | "not-configured" | "cancelled" | "failed";
+    isMock?: boolean;
+    usedCheckoutFallback?: boolean;
+    checkoutUrl?: string;
+  }>;
+  isApplePayAvailable: () => Promise<boolean>;
   openStripeBillingPortal: () => Promise<{ url: string; isMock: boolean }>;
   downgradeToFreePlan: () => Promise<{
     willDowngradeAtPeriodEnd: boolean;
@@ -1049,6 +1061,58 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     [billingInterval, user?.email, user?.id],
   );
 
+  const startApplePayCheckout = useCallback(
+    async (plan: Exclude<BillingTier, "free">) => {
+      if (!user?.id) {
+        throw new Error("Sign in before managing subscriptions.");
+      }
+
+      const result = await startNativeApplePaySubscription({
+        userId: user.id,
+        email: user.email,
+        plan,
+        interval: billingInterval,
+        successUrl: `${env.supportUrl}/billing/success`,
+        cancelUrl: `${env.supportUrl}/billing/cancelled`,
+      });
+
+      if (!result.completed && (result.reason === "not-configured" || result.reason === "unsupported")) {
+        const checkout = await createStripeCheckoutSession({
+          userId: user.id,
+          email: user.email,
+          plan,
+          interval: billingInterval,
+          successUrl: `${env.supportUrl}/billing/success`,
+          cancelUrl: `${env.supportUrl}/billing/cancelled`,
+        });
+        if (checkout.isMock) {
+          setUserPlanState(plan);
+        }
+        return {
+          completed: false,
+          reason: result.reason,
+          isMock: checkout.isMock,
+          usedCheckoutFallback: true,
+          checkoutUrl: checkout.url,
+        };
+      }
+
+      if (result.completed) {
+        setUserPlanState(plan);
+      }
+      return {
+        completed: result.completed,
+        reason: result.completed ? undefined : result.reason,
+        usedCheckoutFallback: false,
+      };
+    },
+    [billingInterval, user?.email, user?.id],
+  );
+
+  const isApplePayAvailable = useCallback(async () => {
+    return isNativeApplePayAvailable();
+  }, []);
+
   const openStripeBillingPortal = useCallback(async () => {
     if (!user?.id) {
       throw new Error("Sign in before opening billing portal.");
@@ -1143,6 +1207,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       setKeepAccessUntilPeriodEnd,
       setInboxScanProviders,
       startSubscriptionCheckout,
+      startApplePayCheckout,
+      isApplePayAvailable,
       openStripeBillingPortal,
       downgradeToFreePlan,
       scheduledDowngradeAt,
@@ -1180,6 +1246,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       setKeepAccessUntilPeriodEnd,
       setInboxScanProviders,
       startSubscriptionCheckout,
+      startApplePayCheckout,
+      isApplePayAvailable,
       openStripeBillingPortal,
       downgradeToFreePlan,
       scheduledDowngradeAt,

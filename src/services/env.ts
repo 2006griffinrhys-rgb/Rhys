@@ -9,6 +9,9 @@ type ExtraConfig = {
       supportUrl?: string;
       stripePortalUrl?: string;
       stripeBillingEnabled?: boolean;
+      stripePublishableKey?: string;
+      stripeMerchantIdentifier?: string;
+      stripeMerchantCountryCode?: string;
       autoInboxScanEnabled?: boolean;
       autoInboxScanIntervalSeconds?: number;
       backgroundInboxTaskEnabled?: boolean;
@@ -44,6 +47,23 @@ const stripePortalUrl =
   process.env.EXPO_PUBLIC_STRIPE_PORTAL_URL ??
   extraConfig.expoConfig?.extra?.stripePortalUrl ??
   "";
+
+const stripePublishableKey =
+  process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ??
+  extraConfig.expoConfig?.extra?.stripePublishableKey ??
+  "";
+
+const stripeMerchantIdentifier =
+  process.env.EXPO_PUBLIC_STRIPE_MERCHANT_IDENTIFIER ??
+  extraConfig.expoConfig?.extra?.stripeMerchantIdentifier ??
+  "";
+
+const stripeMerchantCountryCodeRaw =
+  process.env.EXPO_PUBLIC_STRIPE_MERCHANT_COUNTRY_CODE ??
+  extraConfig.expoConfig?.extra?.stripeMerchantCountryCode ??
+  "GB";
+
+const stripeMerchantCountryCode = stripeMerchantCountryCodeRaw.toUpperCase();
 
 const stripeBillingEnabled =
   process.env.EXPO_PUBLIC_STRIPE_BILLING_ENABLED === "true" ||
@@ -91,6 +111,9 @@ export const env = {
   supabaseProjectId,
   supportUrl,
   stripePortalUrl,
+  stripePublishableKey,
+  stripeMerchantIdentifier,
+  stripeMerchantCountryCode,
   stripeBillingEnabled,
   autoInboxScanEnabled,
   autoInboxScanIntervalMs,
@@ -112,6 +135,9 @@ export function getEnvSummary() {
     projectId: env.supabaseProjectId || "Not configured",
     stripeBillingEnabled: env.stripeBillingEnabled,
     stripePortalUrl: env.stripePortalUrl || "Not configured",
+    stripePublishableKey: env.stripePublishableKey ? "Configured" : "Not configured",
+    stripeMerchantIdentifier: env.stripeMerchantIdentifier || "Not configured",
+    stripeMerchantCountryCode: env.stripeMerchantCountryCode,
     autoInboxScanEnabled: env.autoInboxScanEnabled,
     autoInboxScanIntervalSeconds: env.autoInboxScanIntervalSeconds,
     backgroundInboxTaskEnabled: env.backgroundInboxTaskEnabled,
