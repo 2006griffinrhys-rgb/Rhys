@@ -1,0 +1,22 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "8aba1f4d-7d80-48c1-a166-ea2859cee903"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.walesrugby.rhysapp",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocalNetworkUsageDescription": "Used to find local development servers",
+        "NSBonjourServices": [
+          "_http._tcp"
+        ]
+      }
+    },
+    "android": {
+      "package": "com.walesrugby.rhysapp"
+    }
+  }
+}
