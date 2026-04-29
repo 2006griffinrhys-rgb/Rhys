@@ -32,7 +32,12 @@ export async function getMyProfile(user: User | null): Promise<Profile> {
     .eq('id', user.id)
     .single()
 
-  return data ?? demoProfiles[0]
+  const selectedProfile = data as Profile | null
+  if (selectedProfile != null) {
+    return selectedProfile
+  }
+
+  return demoProfiles[0]
 }
 
 export async function getCompletedProfiles(myId: string): Promise<Profile[]> {
