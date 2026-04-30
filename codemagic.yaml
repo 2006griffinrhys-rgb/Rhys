@@ -80,7 +80,6 @@ workflows:
           xcode-project build-ipa --clean \
             --workspace "$CM_BUILD_DIR/$XCODE_WORKSPACE" \
             --scheme "$XCODE_SCHEME"
-            --archive-xcargs "COMPILATION_CACHE_ENABLE_CACHING=True"
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
