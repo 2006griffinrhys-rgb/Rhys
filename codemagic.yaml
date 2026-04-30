@@ -23,7 +23,7 @@ workflows:
         BUNDLE_ID: "com.proooflive.prooof"
         APP_STORE_APPLE_ID: 6764893148
         XCODE_WORKSPACE: "ios/rhysapp.xcworkspace"
-        XCODE_SCHEME: "rahysapp"
+        XCODE_SCHEME: "rhysapp"
       xcode: latest
       cocoapods: default
       node: 24
@@ -42,8 +42,8 @@ workflows:
         script: |
           
           echo "Changing iOS app name to: $APP_NAME"
-          plutil -replace CFBundleName -string "$APP_NAME" $CM_BUILD_DIR/ios/rahysapp/Info.plist
-          plutil -replace CFBundleDisplayName -string "$APP_NAME" $CM_BUILD_DIR/ios/rahysapp/Info.plist
+          plutil -replace CFBundleName -string "$APP_NAME" $CM_BUILD_DIR/ios/rhysapp/Info.plist
+          plutil -replace CFBundleDisplayName -string "$APP_NAME" $CM_BUILD_DIR/ios/rhysapp/Info.plist
       
       - name: STEP 3 Set up keychain
         script: keychain initialize
