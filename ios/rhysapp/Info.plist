@@ -27,7 +27,7 @@
       <dict>
         <key>CFBundleURLSchemes</key>
         <array>
-          <string>com.walesrugby.rhysapp</string>
+          <string>com.proooflive.prooof</string>
         </array>
       </dict>
       <dict>
@@ -59,6 +59,8 @@
     </array>
     <key>NSLocalNetworkUsageDescription</key>
     <string>Used to find local development servers</string>
+    <key>RCTNewArchEnabled</key>
+    <true/>
     <key>UILaunchStoryboardName</key>
     <string>SplashScreen</string>
     <key>UIRequiredDeviceCapabilities</key>

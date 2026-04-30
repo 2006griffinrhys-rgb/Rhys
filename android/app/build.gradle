@@ -87,9 +87,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.walesrugby.rhysapp'
+    namespace 'com.proooflive.prooof'
     defaultConfig {
-        applicationId 'com.walesrugby.rhysapp'
+        applicationId 'com.proooflive.prooof'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

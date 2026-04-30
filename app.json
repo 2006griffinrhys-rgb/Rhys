@@ -6,7 +6,7 @@
       }
     },
     "ios": {
-      "bundleIdentifier": "com.walesrugby.rhysapp",
+      "bundleIdentifier": "com.proooflive.prooof",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSLocalNetworkUsageDescription": "Used to find local development servers",
@@ -16,7 +16,7 @@
       }
     },
     "android": {
-      "package": "com.walesrugby.rhysapp"
+      "package": "com.proooflive.prooof"
     }
   }
 }

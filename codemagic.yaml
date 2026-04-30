@@ -77,9 +77,9 @@ workflows:
         script: | 
           echo "New build Number : $BUILD_NUMBER"
           
-          xcode-project build-ipa \
-            --workspace "$CM_BUILD_DIR/ios/$XCODE_WORKSPACE" \
-            --scheme "$XCODE_SCHEME" \
+          xcode-project build-ipa --clean \
+            --workspace "$CM_BUILD_DIR/$XCODE_WORKSPACE" \
+            --scheme "$XCODE_SCHEME"
             --archive-xcargs "COMPILATION_CACHE_ENABLE_CACHING=True"
     artifacts:
       - build/ios/ipa/*.ipa

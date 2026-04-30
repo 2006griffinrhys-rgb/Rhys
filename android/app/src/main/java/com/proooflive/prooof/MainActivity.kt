@@ -1,4 +1,4 @@
-package com.walesrugby.rhysapp
+package com.proooflive.prooof
 
 import android.os.Build
 import android.os.Bundle
