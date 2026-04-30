@@ -67,20 +67,14 @@ workflows:
       
       - name: STEP 9 Set build number and version
         script: |
-
-          BUILD_NUMBER=$(date "+%m%d%H%M")
-
-          echo "Generate Build Number $BUILD_NUMBER"
-          echo "BUILD_NUMBER=$BUILD_NUMBER" >> $CM_ENV
-
           cd ios/
 
+          echo "Build Number $BUILD_NUMBER"
           agvtool new-marketing-version $VERSION
           agvtool new-version -all $BUILD_NUMBER
 
       - name: STEP 10 build ipa
         script: | 
-          cd ios/
           echo "New build Number : $BUILD_NUMBER"
           
           xcode-project build-ipa \
