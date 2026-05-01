@@ -1,0 +1,89 @@
+workflows:
+  prooof-ios-build:
+    name: Prooof iOS Workflow
+    instance_type: mac_mini_m2
+
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+      cancel_previous_builds: true
+
+    integrations:
+      app_store_connect: prooof_key
+    
+    environment:
+      groups:
+        - appstore_credentials
+      vars:
+        APP_NAME: Prooof
+        BUNDLE_ID: "com.proooflive.prooof"
+        APP_STORE_APPLE_ID: 6764893148
+        XCODE_WORKSPACE: "ios/rhysapp.xcworkspace"
+        XCODE_SCHEME: "rhysapp"
+      xcode: latest
+      cocoapods: default
+      node: 24
+    
+    scripts:
+      - name: STEP 1 Debug Environment
+        script: |
+          echo "=== Environment Debugging ==="
+          echo "npm version: $(npm --version)"
+          echo "Xcode version: $(xcodebuild -version)"
+          echo "CocoaPods version: $(pod --version)"
+          echo "Ruby version: $(ruby --version)"
+          echo "Bundle ID: $BUNDLE_ID"
+
+      - name: STEP 2 Set App name
+        script: |
+          
+          echo "Changing iOS app name to: $APP_NAME"
+          plutil -replace CFBundleName -string "$APP_NAME" $CM_BUILD_DIR/ios/rhysapp/Info.plist
+          plutil -replace CFBundleDisplayName -string "$APP_NAME" $CM_BUILD_DIR/ios/rhysapp/Info.plist
+      
+      - name: STEP 3 Set up keychain
+        script: keychain initialize
+      
+      - name: STEP 4 Fetch signing files
+        script: | 
+          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
+      
+      - name: STEP 5 Set up signing 'certificate'
+        script: keychain 'add-certificates'
+      
+      - name: STEP 6 Set up code signing settings on 'Xcode' project
+        script: xcode-project use-profiles
+
+      - name: STEP 7 Get Flutter packages
+        script: | 
+          npm install
+      - name: STEP 8 Install pods
+        script: | 
+          find . -name "Podfile" -execdir pod install --repo-update/Users/metastudio/Downloads/fix_stripe_header.sh \;
+      
+      - name: STEP 9 Set build number and version
+        script: |
+          cd ios/
+
+          echo "Build Number $BUILD_NUMBER"
+          agvtool new-marketing-version $VERSION
+          agvtool new-version -all $BUILD_NUMBER
+
+      - name: STEP 10 build ipa
+        script: | 
+          echo "New build Number : $BUILD_NUMBER"
+          
+          xcode-project build-ipa --clean \
+            --workspace "$CM_BUILD_DIR/$XCODE_WORKSPACE" \
+            --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+
+    publishing:
+      app_store_connect:
+        auth: integration
