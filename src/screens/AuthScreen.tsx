@@ -7,6 +7,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { useAuth } from "@/providers/AuthProvider";
 import { Screen } from "@/components/Screen";
@@ -16,13 +17,17 @@ import { env } from "@/services/env";
 type AuthMode = "signin" | "signup";
 
 export function AuthScreen() {
-  const { signIn, signUp, continueWithDemo, loading } = useAuth();
+  const { signIn, signUp, continueWithDemo, loading, resetPassword } = useAuth();
+  const { width } = useWindowDimensions();
   const [mode, setMode] = useState<AuthMode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
 
   const canSubmit = useMemo(() => email.trim().length > 4 && password.length >= 6, [email, password]);
+
+  // Responsive font sizes
+  const heroFontSize = width < 480 ? 32 : width < 768 ? 48 : 58;
 
   const handleSubmit = async () => {
     setMessage(null);
@@ -37,6 +42,22 @@ export function AuthScreen() {
 
     if (!result.error) {
       if (mode === "signup") setMessage("Account created. Check your inbox to confirm.");
+      return;
+    }
+
+    setMessage(result.error);
+  };
+
+  const handleForgotPassword = async () => {
+    setMessage(null);
+    if (!email.trim()) {
+      setMessage("Please enter your email address.");
+      return;
+    }
+
+    const result = await resetPassword(email.trim().toLowerCase());
+    if (!result.error) {
+      setMessage("Password reset link sent to your email. Check your inbox.");
       return;
     }
 
@@ -62,8 +83,8 @@ export function AuthScreen() {
           </View>
 
           <View style={styles.hero}>
-            <Text style={styles.heroHeadlinePrimary}>Every receipt,</Text>
-            <Text style={styles.heroHeadlineAccent}>automatically scanned.</Text>
+            <Text style={[styles.heroHeadlinePrimary, { fontSize: heroFontSize }]}>Every receipt,</Text>
+            <Text style={[styles.heroHeadlineAccent, { fontSize: heroFontSize }]}>automatically scanned.</Text>
           </View>
 
           <View style={styles.authCard}>
@@ -106,6 +127,14 @@ export function AuthScreen() {
                 value={password}
                 onChangeText={setPassword}
               />
+              {mode === "signin" && (
+                <Pressable
+                  onPress={handleForgotPassword}
+                  style={styles.forgotPasswordButton}
+                >
+                  <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+                </Pressable>
+              )}
             </View>
 
             <Pressable
@@ -286,5 +315,16 @@ const styles = StyleSheet.create({
     color: colors.authTextPrimary,
     fontWeight: "600",
     fontSize: 14,
+  },
+  forgotPasswordButton: {
+    marginTop: spacing.xs,
+    alignSelf: "flex-end",
+    paddingVertical: 4,
+  },
+  forgotPasswordText: {
+    color: colors.authBrand,
+    fontSize: 13,
+    fontWeight: "600",
+    textDecorationLine: "underline",
   },
 });

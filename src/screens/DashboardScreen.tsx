@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useNavigation } from "@react-navigation/native";
 import { useEffect, useMemo, useState } from "react";
 import { Alert, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { BillClaimDialog } from "@/components/BillClaimDialog";
@@ -733,6 +734,7 @@ function getToneStyles(tone: ClaimCategoryTone) {
 
 export function DashboardScreen() {
   const { user } = useAuth();
+  const navigation = useNavigation();
   const {
     receipts,
     recalls,
@@ -1287,8 +1289,16 @@ export function DashboardScreen() {
                 ? `${claimsUsed} claims used this month - unlimited plan`
                 : `${claimsUsed} / ${claimsUsed + claimsRemaining} claims used this month`}
             </Text>
-            <View style={styles.upgradePill}>
-              <Text style={styles.upgradeText}>
+            <Pressable
+              onPress={() => {
+                if (userPlan === "free") {
+                  navigation.navigate("Settings", { scrollToSubscription: true });
+                }
+              }}
+              disabled={userPlan !== "free"}
+              style={[styles.upgradePill, userPlan === "free" && styles.upgradePillActive]}
+            >
+              <Text style={[styles.upgradeText, userPlan === "free" && styles.upgradeTextActive]}>
                 {userPlan === "free"
                   ? "Upgrade"
                   : `${billingInterval === "yearly" ? "Yearly" : "Monthly"} ${formatCents(
@@ -1296,7 +1306,7 @@ export function DashboardScreen() {
                       preferredCurrency,
                     )}`}
               </Text>
-            </View>
+            </Pressable>
           </View>
 
           <View style={styles.moneyCard}>
@@ -1785,10 +1795,17 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     backgroundColor: colors.authSurfaceSoft,
   },
+  upgradePillActive: {
+    backgroundColor: colors.authBrand,
+    borderColor: colors.authBrand,
+  },
   upgradeText: {
     color: colors.webLandingText,
     fontSize: 12,
     fontWeight: "700",
+  },
+  upgradeTextActive: {
+    color: colors.authSurface,
   },
   moneyCard: {
     borderRadius: radii.xl,

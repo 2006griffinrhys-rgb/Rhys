@@ -1,4 +1,6 @@
-import { Alert, Linking, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { useRoute } from "@react-navigation/native";
 import { Card } from "@/components/Card";
 import { Screen } from "@/components/Screen";
 import { SectionTitle } from "@/components/SectionTitle";
@@ -51,6 +53,10 @@ export function SettingsScreen() {
     inboxScanLastCount,
   } = useAppData();
   const envSummary = getEnvSummary();
+  const route = useRoute<any>();
+  const scrollViewRef = useRef<ScrollView>(null);
+  const [subscriptionSectionY, setSubscriptionSectionY] = useState<number | null>(null);
+  const [hasScrolledToSubscription, setHasScrolledToSubscription] = useState(false);
 
   const isApplePayFlow = Platform.OS === "ios";
 
@@ -191,10 +197,19 @@ export function SettingsScreen() {
     );
   };
 
+  useEffect(() => {
+    const shouldScroll = route.params?.scrollToSubscription && !hasScrolledToSubscription;
+    if (shouldScroll && subscriptionSectionY !== null) {
+      scrollViewRef.current?.scrollTo({ y: subscriptionSectionY - 20, animated: true });
+      setHasScrolledToSubscription(true);
+    }
+  }, [route.params, subscriptionSectionY, hasScrolledToSubscription]);
+
   return (
-    <Screen>
-      <View style={styles.page}>
-        <View style={styles.container}>
+    <Screen scroll={false}>
+      <ScrollView ref={scrollViewRef} contentContainerStyle={styles.scrollContent}>
+        <View style={styles.page}>
+          <View style={styles.container}>
           <SectionTitle title="Settings" subtitle="Account, sync and environment details." />
 
           <Card>
@@ -241,13 +256,14 @@ export function SettingsScreen() {
             ) : null}
           </Card>
 
-          <Card>
-            <Text style={styles.groupTitle}>Subscription</Text>
-            {isApplePayFlow ? (
-              <Text style={styles.scanMeta}>
-                Apple Pay enabled on iOS when device and Stripe configuration support it.
-              </Text>
-            ) : null}
+          <View onLayout={(event) => setSubscriptionSectionY(event.nativeEvent.layout.y)}>
+            <Card>
+              <Text style={styles.groupTitle}>Subscription</Text>
+              {isApplePayFlow ? (
+                <Text style={styles.scanMeta}>
+                  Apple Pay enabled on iOS when device and Stripe configuration support it.
+                </Text>
+              ) : null}
             <Text style={styles.envLabel}>Billing interval</Text>
             <View style={styles.currencyRow}>
               {BILLING_INTERVALS.map((interval) => {
@@ -287,7 +303,8 @@ export function SettingsScreen() {
             <Pressable style={styles.ghostButton} onPress={handleOpenBillingPortal}>
               <Text style={styles.ghostButtonText}>Open Stripe billing portal</Text>
             </Pressable>
-          </Card>
+            </Card>
+          </View>
 
           <Card>
             <Text style={styles.groupTitle}>Currency</Text>
@@ -346,6 +363,7 @@ export function SettingsScreen() {
           </Card>
         </View>
       </View>
+      </ScrollView>
     </Screen>
   );
 }
@@ -360,6 +378,12 @@ const styles = StyleSheet.create({
     maxWidth: 1120,
     gap: spacing.md,
     paddingBottom: spacing.lg,
+  },
+  scrollContent: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xxxl,
+    gap: spacing.md,
   },
   emailLabel: {
     color: colors.textMuted,

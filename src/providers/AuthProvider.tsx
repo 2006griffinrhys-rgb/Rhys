@@ -14,6 +14,7 @@ type AuthContextValue = {
   signUp: (email: string, password: string) => Promise<{ error: string | null }>;
   continueWithDemo: () => Promise<void>;
   signOut: () => Promise<void>;
+  resetPassword: (email: string) => Promise<{ error: string | null }>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -130,6 +131,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
           return;
         }
         await supabase.auth.signOut();
+      },
+      async resetPassword(email) {
+        if (env.demoAuthEnabled && !env.hasSupabaseConfig) {
+          return { error: null };
+        }
+        const { error } = await supabase.auth.resetPasswordForEmail(email);
+        return { error: error?.message ?? null };
       },
     }),
     [isDemoAuth, loading, session, user],
