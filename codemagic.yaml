@@ -63,14 +63,14 @@ workflows:
           npm install
       - name: STEP 8 Install pods
         script: | 
-          find . -name "Podfile" -execdir pod install --repo-update/Users/metastudio/Downloads/fix_stripe_header.sh \;
+          npx expo prebuild --clean
       
       - name: STEP 9 Set build number and version
         script: |
           cd ios/
 
           echo "Build Number $BUILD_NUMBER"
-          agvtool new-marketing-version $VERSION
+          agvtool new-marketing-version $APP_VERSION
           agvtool new-version -all $BUILD_NUMBER
 
       - name: STEP 10 build ipa
