@@ -26,7 +26,7 @@ workflows:
         XCODE_SCHEME: "rhysapp"
       xcode: latest
       cocoapods: default
-      node: 24
+      node: 25
     
     scripts:
       - name: STEP 1 Debug Environment
@@ -38,34 +38,36 @@ workflows:
           echo "Ruby version: $(ruby --version)"
           echo "Bundle ID: $BUNDLE_ID"
 
-      - name: STEP 7 Get Flutter packages
+      - name: STEP 2 Get NPM packages
         script: |
           npm install
-          npx expo prebuild clean
           
-      - name: STEP 8 Install pods
+      - name: STEP 3 Install pods
         script: |
           cd ios/
           pod install --repo-update
       
-      - name: STEP 2 Set App name
+      - name: STEP 4 Set App name
         script: |
           
           echo "Changing iOS app name to: $APP_NAME"
           plutil -replace CFBundleName -string "$APP_NAME" $CM_BUILD_DIR/ios/rhysapp/Info.plist
           plutil -replace CFBundleDisplayName -string "$APP_NAME" $CM_BUILD_DIR/ios/rhysapp/Info.plist
-      
-      - name: STEP 3 Set up keychain
+          sed -i '' -e 's/PRODUCT_BUNDLE_IDENTIFIER \= [^\;]*\;/PRODUCT_BUNDLE_IDENTIFIER = '${BUNDLE_ID}';/' $CM_BUILD_DIR/ios/${XCODE_SCHEME}.xcodeproj/project.pbxproj
+
+          echo "IOS Bundle ID updated successfully to $BUNDLE_ID"
+   
+      - name: STEP 5 Set up keychain
         script: keychain initialize
       
-      - name: STEP 4 Fetch signing files
+      - name: STEP 6 Fetch signing files
         script: |
           app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
       
-      - name: STEP 5 Set up signing 'certificate'
+      - name: STEP 7 Set up signing 'certificate'
         script: keychain 'add-certificates'
       
-      - name: STEP 6 Set up code signing settings on 'Xcode' project
+      - name: STEP 8 Set up code signing settings on 'Xcode' project
         script: xcode-project use-profiles
       
       - name: STEP 9 Set build number and version
