@@ -22,8 +22,8 @@ workflows:
         APP_NAME: Prooof
         BUNDLE_ID: "com.proooflive.prooof"
         APP_STORE_APPLE_ID: 6764893148
-        XCODE_WORKSPACE: "ios/rhysapp.xcworkspace"
-        XCODE_SCHEME: "rhysapp"
+        XCODE_WORKSPACE: "ios/Prooof.xcworkspace"
+        XCODE_SCHEME: "Prooof"
       xcode: latest
       cocoapods: default
       node: 25
