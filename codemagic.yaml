@@ -49,7 +49,7 @@ workflows:
         script: keychain initialize
       
       - name: STEP 4 Fetch signing files
-        script: | 
+        script: |
           app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
       
       - name: STEP 5 Set up signing 'certificate'
@@ -59,11 +59,13 @@ workflows:
         script: xcode-project use-profiles
 
       - name: STEP 7 Get Flutter packages
-        script: | 
+        script: |
           npm install
+      
       - name: STEP 8 Install pods
-        script: | 
-          npx expo prebuild --clean
+        script: |
+          cd ios/
+          pod install --repo-update
       
       - name: STEP 9 Set build number and version
         script: |
@@ -74,7 +76,7 @@ workflows:
           agvtool new-version -all $BUILD_NUMBER
 
       - name: STEP 10 build ipa
-        script: | 
+        script: |
           echo "New build Number : $BUILD_NUMBER"
           
           xcode-project build-ipa --clean \
