@@ -38,6 +38,16 @@ workflows:
           echo "Ruby version: $(ruby --version)"
           echo "Bundle ID: $BUNDLE_ID"
 
+      - name: STEP 7 Get Flutter packages
+        script: |
+          npm install
+          npx expo prebuild clean
+          
+      - name: STEP 8 Install pods
+        script: |
+          cd ios/
+          pod install --repo-update
+      
       - name: STEP 2 Set App name
         script: |
           
@@ -57,15 +67,6 @@ workflows:
       
       - name: STEP 6 Set up code signing settings on 'Xcode' project
         script: xcode-project use-profiles
-
-      - name: STEP 7 Get Flutter packages
-        script: |
-          npm install
-      
-      - name: STEP 8 Install pods
-        script: |
-          cd ios/
-          pod install --repo-update
       
       - name: STEP 9 Set build number and version
         script: |
