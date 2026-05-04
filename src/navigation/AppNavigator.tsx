@@ -9,6 +9,7 @@ import { colors } from "@/theme/colors";
 type RootStackParamList = {
   SignIn: undefined;
   App: undefined;
+  ConnectEmail: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -26,6 +27,8 @@ const navTheme = {
   },
 };
 
+import { ConnectEmailScreen } from "@/screens/ConnectEmailScreen";
+
 export function AppNavigator() {
   const { session, user, loading } = useAuth();
 
@@ -39,7 +42,14 @@ export function AppNavigator() {
         {!session && !user ? (
           <Stack.Screen name="SignIn" component={AuthScreen} />
         ) : (
-          <Stack.Screen name="App" component={MainTabs} />
+          <>
+            <Stack.Screen name="App" component={MainTabs} />
+            <Stack.Screen 
+              name="ConnectEmail" 
+              component={ConnectEmailScreen} 
+              options={{ presentation: "modal", headerShown: true, title: "Connect Email" }}
+            />
+          </>
         )}
       </Stack.Navigator>
     </NavigationContainer>

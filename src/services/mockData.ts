@@ -9,6 +9,7 @@ export const MOCK_RECEIPTS: Receipt[] = [
     purchaseDate: "2026-04-05T10:35:00.000Z",
     status: "processed",
     source: "gmail",
+    category: "Groceries",
   },
   {
     id: "r-002",
@@ -18,6 +19,7 @@ export const MOCK_RECEIPTS: Receipt[] = [
     purchaseDate: "2026-04-01T17:20:00.000Z",
     status: "pending",
     source: "outlook",
+    category: "Shopping",
     supplierWarrantySource: "invoice",
     supplierWarrantyMonths: 24,
   },
@@ -29,6 +31,7 @@ export const MOCK_RECEIPTS: Receipt[] = [
     purchaseDate: "2026-03-28T12:02:00.000Z",
     status: "failed",
     source: "manual",
+    category: "Groceries",
   },
   {
     id: "r-004",
@@ -38,6 +41,7 @@ export const MOCK_RECEIPTS: Receipt[] = [
     purchaseDate: "2026-04-12T15:45:00.000Z",
     status: "processed",
     source: "gmail",
+    category: "Electronics",
     supplierWarrantySource: "supplier-site",
     supplierWarrantyMonths: 24,
   },
@@ -49,6 +53,7 @@ export const MOCK_RECEIPTS: Receipt[] = [
     purchaseDate: "2026-04-16T09:10:00.000Z",
     status: "processed",
     source: "outlook",
+    category: "Shopping",
   },
   {
     id: "r-006",
@@ -58,6 +63,7 @@ export const MOCK_RECEIPTS: Receipt[] = [
     purchaseDate: "2026-04-14T08:20:00.000Z",
     status: "processed",
     source: "yahoo",
+    category: "Utilities",
   },
   {
     id: "r-007",
@@ -67,6 +73,7 @@ export const MOCK_RECEIPTS: Receipt[] = [
     purchaseDate: "2026-04-08T07:55:00.000Z",
     status: "processed",
     source: "gmail",
+    category: "Utilities",
   },
   {
     id: "r-008",
@@ -76,6 +83,7 @@ export const MOCK_RECEIPTS: Receipt[] = [
     purchaseDate: "2026-04-03T13:14:00.000Z",
     status: "processed",
     source: "office365",
+    category: "Utilities",
   },
   {
     id: "r-009",
@@ -85,6 +93,7 @@ export const MOCK_RECEIPTS: Receipt[] = [
     purchaseDate: "2026-04-09T11:11:00.000Z",
     status: "processed",
     source: "exchange",
+    category: "Utilities",
   },
   {
     id: "r-010",
@@ -94,6 +103,7 @@ export const MOCK_RECEIPTS: Receipt[] = [
     purchaseDate: "2026-04-11T18:32:00.000Z",
     status: "processed",
     source: "work-imap",
+    category: "Utilities",
   },
   {
     id: "r-011",
@@ -103,6 +113,7 @@ export const MOCK_RECEIPTS: Receipt[] = [
     purchaseDate: "2026-04-18T06:00:00.000Z",
     status: "processed",
     source: "outlook",
+    category: "Subscriptions",
   },
   {
     id: "r-012",
@@ -112,6 +123,7 @@ export const MOCK_RECEIPTS: Receipt[] = [
     purchaseDate: "2026-04-17T22:46:00.000Z",
     status: "processed",
     source: "gmail",
+    category: "Travel",
   },
   {
     id: "r-013",
@@ -121,6 +133,7 @@ export const MOCK_RECEIPTS: Receipt[] = [
     purchaseDate: "2026-04-19T10:30:00.000Z",
     status: "pending",
     source: "yahoo",
+    category: "Subscriptions",
   },
   {
     id: "r-014",
@@ -130,6 +143,7 @@ export const MOCK_RECEIPTS: Receipt[] = [
     purchaseDate: "2026-04-06T16:41:00.000Z",
     status: "processed",
     source: "gmail",
+    category: "Shopping",
     supplierWarrantySource: "invoice",
     supplierWarrantyMonths: 12,
   },
@@ -141,6 +155,7 @@ export const MOCK_RECEIPTS: Receipt[] = [
     purchaseDate: "2026-04-13T14:12:00.000Z",
     status: "processed",
     source: "manual",
+    category: "Home Improvement",
   },
   {
     id: "r-016",
@@ -150,6 +165,7 @@ export const MOCK_RECEIPTS: Receipt[] = [
     purchaseDate: "2026-04-20T12:15:00.000Z",
     status: "processed",
     source: "gmail",
+    category: "Shopping",
     supplierWarrantySource: "invoice",
     supplierWarrantyMonths: 12,
   },
@@ -161,6 +177,7 @@ export const MOCK_RECEIPTS: Receipt[] = [
     purchaseDate: "2026-04-21T09:40:00.000Z",
     status: "processed",
     source: "outlook",
+    category: "Services",
   },
 ];
 

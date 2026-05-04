@@ -36,9 +36,24 @@ export type Receipt = {
   purchaseDate: string;
   source: EmailProviderId | "manual";
   status: ReceiptStatus;
+  category?: string;
   supplierWarrantyMonths?: number;
   supplierWarrantySource?: "invoice" | "supplier-site" | "marketplace-policy";
   supplierWarrantyCheckedAt?: string;
+};
+
+export type EmailConnection = {
+  id: string;
+  userId: string;
+  email: string;
+  provider: EmailProviderId | "custom";
+  imapHost?: string;
+  imapPort?: number;
+  smtpHost?: string;
+  smtpPort?: number;
+  username?: string;
+  isActive: boolean;
+  createdAt: string;
 };
 
 export type ReceiptImageScanInput = {
@@ -123,6 +138,7 @@ export type AppSnapshot = {
   products: Product[];
   recalls: Recall[];
   claims: Claim[];
+  emailConnections: EmailConnection[];
 };
 
 export type DashboardStats = {

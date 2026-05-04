@@ -65,6 +65,7 @@ type AppDataState = {
   recalls: Recall[];
   claims: Claim[];
   stats: DashboardStats;
+  emailConnections: EmailConnection[];
 };
 
 type AppDataContextValue = AppDataState & {
@@ -169,6 +170,7 @@ const EMPTY_STATE: AppDataState = {
   recalls: [],
   claims: [],
   stats: EMPTY_STATS,
+  emailConnections: [],
 };
 
 const PLAN_CONFIG: Record<
@@ -780,15 +782,28 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
 
   const runInboxScan = useCallback(async (providers?: EmailProviderId[]) => {
     if (!user?.id) return;
+    const targetProviders = providers ?? inboxScanProviders;
 
     try {
       setScanningInbox(true);
       setError(null);
-      const result = await runMultiProviderInboxScan(user.id, providers ?? inboxScanProviders);
+      console.log("[AppData] runInboxScan started for providers:", targetProviders);
+      
+      const result = await runMultiProviderInboxScan(user.id, targetProviders);
+      
+      console.log("[AppData] runInboxScan success:", {
+        scanned: result.scannedEmails,
+        imported: result.importedReceipts?.length ?? 0,
+        warnings: result.warnings
+      });
+
       setInboxScanLastCount(result.scannedEmails);
       setLastInboxScan(result);
+      
+      console.log("[AppData] Refreshing data after scan...");
       await loadData();
     } catch (err) {
+      console.error("[AppData] runInboxScan failed:", err);
       const message = err instanceof Error ? err.message : "Inbox scan failed.";
       setError(message);
     } finally {

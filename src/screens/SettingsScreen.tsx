@@ -1,6 +1,6 @@
 import { Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useEffect, useRef, useState } from "react";
-import { useRoute } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import { Card } from "@/components/Card";
 import { Screen } from "@/components/Screen";
 import { SectionTitle } from "@/components/SectionTitle";
@@ -27,6 +27,7 @@ const PROVIDERS: { id: EmailProviderId; label: string }[] = [
 ];
 
 export function SettingsScreen() {
+  const navigation = useNavigation();
   const { user, signOut, isDemoAuth } = useAuth();
   const {
     refresh,
@@ -51,6 +52,7 @@ export function SettingsScreen() {
     providerCoverageLabel,
     scanningInbox,
     inboxScanLastCount,
+    emailConnections,
   } = useAppData();
   const envSummary = getEnvSummary();
   const route = useRoute<any>();
@@ -219,26 +221,59 @@ export function SettingsScreen() {
 
           <Card>
             <Text style={styles.groupTitle}>Data Sync</Text>
-            <Text style={styles.envLabel}>Provider coverage</Text>
+            <Text style={styles.envLabel}>Connected Accounts</Text>
             <Text style={styles.envValue}>{providerCoverageLabel}</Text>
             <View style={styles.providerGrid}>
               {PROVIDERS.map((provider) => {
-                const selected = inboxScanProviders.includes(provider.id);
+                const connection = (emailConnections || []).find((c) => c.provider === provider.id);
+                const isConnected = !!connection;
+                const isSelected = inboxScanProviders.includes(provider.id);
+
                 return (
                   <Pressable
                     key={provider.id}
-                    onPress={() => toggleProvider(provider.id)}
-                    style={[styles.providerChip, selected && styles.providerChipActive]}
+                    onPress={() => {
+                      if (isConnected) {
+                        Alert.alert(
+                          "Account Connected",
+                          `${provider.label} is already connected (${connection.email}). Would you like to reconnect?`,
+                          [
+                            { text: "Cancel", style: "cancel" },
+                            { 
+                              text: "Reconnect", 
+                              onPress: () => (navigation as any).navigate("ConnectEmail", { providerId: provider.id }) 
+                            },
+                          ]
+                        );
+                      } else {
+                        (navigation as any).navigate("ConnectEmail", { providerId: provider.id });
+                      }
+                    }}
+                    style={[
+                      styles.providerChip,
+                      isConnected && styles.providerChipConnected,
+                      isSelected && !isConnected && styles.providerChipActive
+                    ]}
                   >
                     <Text
-                      style={[styles.providerChipText, selected && styles.providerChipTextActive]}
+                      style={[
+                        styles.providerChipText,
+                        isConnected && styles.providerChipTextConnected,
+                        isSelected && !isConnected && styles.providerChipTextActive
+                      ]}
                     >
-                      {provider.label}
+                      {provider.label} {isConnected ? "✓" : ""}
                     </Text>
                   </Pressable>
                 );
               })}
             </View>
+            <Pressable 
+              style={styles.ghostButton} 
+              onPress={() => (navigation as any).navigate("ConnectEmail")}
+            >
+              <Text style={styles.ghostButtonText}>Connect new email (SMTP/IMAP)</Text>
+            </Pressable>
             <Pressable style={styles.primaryButton} onPress={refresh} disabled={refreshing}>
               <Text style={styles.primaryButtonText}>
                 {refreshing ? "Refreshing..." : "Refresh data"}
@@ -456,6 +491,13 @@ const styles = StyleSheet.create({
   },
   providerChipTextActive: {
     color: colors.primary,
+  },
+  providerChipConnected: {
+    borderColor: "#188450",
+    backgroundColor: "#E6F4EA",
+  },
+  providerChipTextConnected: {
+    color: "#188450",
   },
   planButton: {
     borderWidth: 1,

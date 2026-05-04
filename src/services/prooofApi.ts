@@ -286,6 +286,7 @@ function mapReceipt(row: UnknownRow): Receipt {
           ? Math.round(warrantyPeriodMonths)
           : undefined,
     supplierWarrantySource: warrantySource,
+    category: asString(row.category, "Uncategorized"),
   };
 }
 
@@ -378,6 +379,22 @@ export function computeStats(snapshot: AppSnapshot | null): DashboardStats {
   };
 }
 
+function mapEmailConnection(row: UnknownRow): EmailConnection {
+  return {
+    id: asString(row.id),
+    userId: asString(row.user_id),
+    email: asString(row.email),
+    provider: asString(row.provider) as any,
+    imapHost: asOptionalString(row.imap_host),
+    imapPort: asNumber(row.imap_port),
+    smtpHost: asOptionalString(row.smtp_host),
+    smtpPort: asNumber(row.smtp_port),
+    username: asOptionalString(row.username),
+    isActive: asBoolean(row.is_active, true),
+    createdAt: asDateString(row.created_at),
+  };
+}
+
 export async function fetchSnapshotForUser(userId: string): Promise<AppSnapshot> {
   if (!env.hasSupabaseConfig || !userId) {
     return {
@@ -385,22 +402,31 @@ export async function fetchSnapshotForUser(userId: string): Promise<AppSnapshot>
       products: MOCK_PRODUCTS,
       recalls: MOCK_RECALLS,
       claims: MOCK_CLAIMS,
+      emailConnections: [],
     };
   }
 
-  const [receiptsResult, productsResult, recallsResult, claimsResult] = await Promise.all([
+  const [receiptsResult, productsResult, recallsResult, claimsResult, connectionsResult] = await Promise.all([
     supabase.from("bills").select("*").eq("user_id", userId).order("purchased_at", { ascending: false }),
     supabase.from("products").select("*").eq("user_id", userId).order("purchased_at", { ascending: false }),
     supabase.from("recalls").select("*").order("published_at", { ascending: false }),
     supabase.from("claims").select("*").eq("user_id", userId).order("created_at", { ascending: false }),
+    supabase.from("email_connections").select("*").eq("user_id", userId).order("created_at", { ascending: false }),
   ]);
 
-  if (receiptsResult.error || productsResult.error || recallsResult.error || claimsResult.error) {
+  if (
+    receiptsResult.error ||
+    productsResult.error ||
+    recallsResult.error ||
+    claimsResult.error ||
+    connectionsResult.error
+  ) {
     throw new Error(
       receiptsResult.error?.message ??
         productsResult.error?.message ??
         recallsResult.error?.message ??
         claimsResult.error?.message ??
+        connectionsResult.error?.message ??
         "Unable to fetch data.",
     );
   }
@@ -415,6 +441,7 @@ export async function fetchSnapshotForUser(userId: string): Promise<AppSnapshot>
     products: (productsResult.data ?? []).map((row) => mapProduct(row as UnknownRow)),
     recalls: (recallsResult.data ?? []).map((row) => mapRecall(row as UnknownRow)),
     claims: (claimsResult.data ?? []).map((row) => mapClaim(row as UnknownRow)),
+    emailConnections: (connectionsResult.data ?? []).map((row) => mapEmailConnection(row as UnknownRow)),
   };
 }
 
@@ -581,7 +608,9 @@ export async function runMultiProviderInboxScan(
 
   return {
     scannedEmails: asNumber(payload.scanned, 0),
-    importedReceipts: [],
+    importedReceipts: Array.isArray(payload.imported) 
+      ? payload.imported.map(r => mapReceipt(r as UnknownRow))
+      : [],
     scannedAt: asDateString(payload.scanned_at),
     providers:
       providerResults.length > 0
