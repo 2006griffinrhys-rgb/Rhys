@@ -7,6 +7,9 @@ import {
   MOCK_RECEIPTS,
 } from "@/services/mockData";
 import { supabase } from "@/services/supabase";
+import { db } from "@/db/client";
+import * as schema from "@/db/schema";
+import { eq, desc } from "drizzle-orm";
 import type {
   AppSnapshot,
   Claim,
@@ -396,86 +399,46 @@ function mapEmailConnection(row: UnknownRow): EmailConnection {
 }
 
 export async function fetchSnapshotForUser(userId: string): Promise<AppSnapshot> {
-  if (!env.hasSupabaseConfig || !userId) {
-    return {
-      receipts: MOCK_RECEIPTS,
-      products: MOCK_PRODUCTS,
-      recalls: MOCK_RECALLS,
-      claims: MOCK_CLAIMS,
-      emailConnections: [],
-    };
-  }
+  // If Supabase is intentionally disabled or not configured, use local SQLite
+  const localReceipts = await db.query.receipts.findMany({
+    orderBy: [desc(schema.receipts.purchaseDate)],
+  });
+  const localProducts = await db.query.products.findMany();
+  const localRecalls = await db.query.recalls.findMany({
+    orderBy: [desc(schema.recalls.publishedAt)],
+  });
+  const localClaims = await db.query.claims.findMany({
+    orderBy: [desc(schema.claims.createdAt)],
+  });
+  const localConnections = await db.query.emailConnections.findMany({
+    where: eq(schema.emailConnections.userId, userId),
+  });
 
-  const [receiptsResult, productsResult, recallsResult, claimsResult, connectionsResult] = await Promise.all([
-    supabase.from("bills").select("*").eq("user_id", userId).order("purchased_at", { ascending: false }),
-    supabase.from("products").select("*").eq("user_id", userId).order("purchased_at", { ascending: false }),
-    supabase.from("recalls").select("*").order("published_at", { ascending: false }),
-    supabase.from("claims").select("*").eq("user_id", userId).order("created_at", { ascending: false }),
-    supabase.from("email_connections").select("*").eq("user_id", userId).order("created_at", { ascending: false }),
-  ]);
-
-  if (
-    receiptsResult.error ||
-    productsResult.error ||
-    recallsResult.error ||
-    claimsResult.error ||
-    connectionsResult.error
-  ) {
-    throw new Error(
-      receiptsResult.error?.message ??
-        productsResult.error?.message ??
-        recallsResult.error?.message ??
-        claimsResult.error?.message ??
-        connectionsResult.error?.message ??
-        "Unable to fetch data.",
-    );
-  }
-
+  // If local DB is empty and we have Supabase, we could sync, but user said "no need to supabase"
+  // For now, let's just return what's in local DB.
   return {
-    receipts: dedupeReceipts(
-      (receiptsResult.data ?? [])
-        .map((row) => row as UnknownRow)
-        .filter((row) => !isMoneyInRow(row, resolveRawTotalCents(row)))
-        .map((row) => mapReceipt(row)),
-    ),
-    products: (productsResult.data ?? []).map((row) => mapProduct(row as UnknownRow)),
-    recalls: (recallsResult.data ?? []).map((row) => mapRecall(row as UnknownRow)),
-    claims: (claimsResult.data ?? []).map((row) => mapClaim(row as UnknownRow)),
-    emailConnections: (connectionsResult.data ?? []).map((row) => mapEmailConnection(row as UnknownRow)),
+    receipts: localReceipts as Receipt[],
+    products: localProducts as Product[],
+    recalls: localRecalls as Recall[],
+    claims: localClaims as Claim[],
+    emailConnections: localConnections as any[],
   };
 }
 
 export async function createClaimForRecall(userId: string, recall: Recall): Promise<Claim> {
-  if (!env.hasSupabaseConfig || !userId) {
-    return {
-      id: Math.random().toString(36).slice(2),
-      recallId: recall.id,
-      productName: recall.productName,
-      status: "submitted",
-      createdAt: new Date().toISOString(),
-      estimatedPayoutCents: recall.estimatedPayoutCents,
-      estimatedPayoutCurrency: recall.estimatedPayoutCurrency,
-    };
-  }
+  const newClaim: schema.ClaimInsert = {
+    id: Math.random().toString(36).slice(2, 10),
+    recallId: recall.id,
+    productName: recall.productName,
+    status: "submitted",
+    createdAt: new Date().toISOString(),
+    estimatedPayoutCents: recall.estimatedPayoutCents,
+    estimatedPayoutCurrency: recall.estimatedPayoutCurrency,
+  };
 
-  const { data, error } = await supabase
-    .from("claims")
-    .insert({
-      user_id: userId,
-      recall_id: recall.id,
-      product_name: recall.productName,
-      status: "submitted",
-      estimated_payout_cents: recall.estimatedPayoutCents,
-      estimated_payout_currency: recall.estimatedPayoutCurrency,
-    })
-    .select("*")
-    .single();
-
-  if (error || !data) {
-    throw new Error(error?.message ?? "Failed to create claim.");
-  }
-
-  return mapClaim(data as UnknownRow);
+  await db.insert(schema.claims).values(newClaim);
+  
+  return newClaim as Claim;
 }
 
 export async function updateReceiptStatus(

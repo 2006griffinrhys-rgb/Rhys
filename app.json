@@ -44,7 +44,8 @@
         {
           "merchantIdentifier": "merchant.com.prooof.app"
         }
-      ]
+      ],
+      "expo-sqlite"
     ],
     "extra": {
       "eas": {
