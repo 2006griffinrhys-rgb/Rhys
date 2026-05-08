@@ -1,6 +1,7 @@
 import type { EmailProviderId, Receipt } from '@/types/domain';
 import { receiptParsingService } from './receiptParsingService';
 import { receiptCategoryService } from './receiptCategoryService';
+import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from '@/services/supabase';
 
 export type EmailFetchConfig = {
@@ -99,7 +100,14 @@ export const emailFetchingService = {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        if (error instanceof FunctionsHttpError) {
+          const errorMessage = await error.context.json();
+          console.error("[Email] Edge Function returned an error:", errorMessage);
+          throw new Error(`Edge Function error: ${JSON.stringify(errorMessage)}`);
+        }
+        throw error;
+      }
       const emails = (data?.emails || []) as any[];
 
       console.log(`[Email] Fetched ${emails.length} new emails`);

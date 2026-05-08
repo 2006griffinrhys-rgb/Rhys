@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { ImapSimpleClient } from "https://esm.sh/imap-simple@5.1.0";
+import { ImapFlow } from "npm:imapflow";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -39,6 +39,7 @@ function json(body: Record<string, unknown>, status = 200) {
   });
 }
 
+
 async function fetchEmailsViaImap(
   imapHost: string,
   imapPort: number,
@@ -46,43 +47,74 @@ async function fetchEmailsViaImap(
   password: string,
   limit: number = 10,
 ): Promise<FetchedEmail[]> {
+  const client = new ImapFlow({
+    host: imapHost,
+    port: imapPort,
+    secure: imapPort === 993,
+    auth: {
+      user: email,
+      pass: password,
+    },
+    logger: false,
+  });
+
   try {
-    // In a real implementation, use imap-simple or nodemailer
-    // For now, return sample emails to demonstrate the flow
     console.log(`[IMAP] Connecting to ${imapHost}:${imapPort} for ${email}`);
+    await client.connect();
 
-    // Simulated email fetch - in production use actual IMAP library
-    const now = new Date();
-    const sampleEmails: FetchedEmail[] = [
-      {
-        messageId: `msg-${Date.now()}-1`,
-        subject: "Order confirmation from Amazon",
-        from: "order-update@amazon.co.uk",
-        date: new Date(now.getTime() - 3600000).toISOString(),
-        body: "Your order has been placed. Total: £24.97",
-        snippet: "Thank you for your purchase...",
-      },
-      {
-        messageId: `msg-${Date.now()}-2`,
-        subject: "Receipt from Tesco",
-        from: "noreply@tesco.com",
-        date: new Date(now.getTime() - 7200000).toISOString(),
-        body: "Your shopping receipt. Total: £45.20",
-        snippet: "Thanks for shopping...",
-      },
-      {
-        messageId: `msg-${Date.now()}-3`,
-        subject: "Your bill from BT",
-        from: "billing@bt.com",
-        date: new Date(now.getTime() - 86400000).toISOString(),
-        body: "Your monthly bill is ready. Total: £32.99",
-        snippet: "Your bill statement...",
-      },
-    ];
+    const lock = await client.getMailboxLock("INBOX");
+    const emails: FetchedEmail[] = [];
 
-    return sampleEmails.slice(0, limit);
+    try {
+      // Search for emails from the last 30 days containing receipt-like keywords
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const searchCriteria = {
+        since: thirtyDaysAgo,
+        or: [
+          { subject: "receipt" },
+          { subject: "invoice" },
+          { subject: "order" },
+          { subject: "confirmation" },
+          { subject: "ticket" },
+          { subject: "booking" }
+        ]
+      };
+
+      console.log(`[IMAP] Searching emails for ${email}...`);
+      const messages = await client.search(searchCriteria);
+      
+      // Get the latest 'limit' messages
+      const latestMessages = messages.reverse().slice(0, limit);
+
+      for (const uid of latestMessages) {
+        const message = await client.fetchOne(uid, {
+          envelope: true,
+          source: false,
+          bodyStructure: true,
+        });
+
+        if (message) {
+          emails.push({
+            messageId: message.envelope.messageId || `imap-${uid}`,
+            subject: message.envelope.subject || "(No Subject)",
+            from: message.envelope.from?.[0]?.address || "Unknown",
+            date: message.envelope.date ? message.envelope.date.toISOString() : new Date().toISOString(),
+            body: "", // We could fetch the body if needed, but for now snippet/metadata is enough
+            snippet: message.envelope.subject || "",
+          });
+        }
+      }
+    } finally {
+      lock.release();
+    }
+
+    await client.logout();
+    return emails;
   } catch (error) {
     console.error("[IMAP] Error:", error);
+    try { await client.logout(); } catch { /* ignore */ }
     throw error;
   }
 }

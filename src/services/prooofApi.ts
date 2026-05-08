@@ -1,3 +1,4 @@
+import { FunctionsHttpError } from "@supabase/supabase-js";
 import { env } from "@/services/env";
 import {
   MOCK_CLAIMS,
@@ -536,6 +537,11 @@ export async function runMultiProviderInboxScan(
   });
 
   if (error) {
+    if (error instanceof FunctionsHttpError) {
+      const errorMessage = await error.context.json();
+      console.error("[ProoofAPI] Edge Function returned an error:", errorMessage);
+      throw new Error(`Edge Function error: ${JSON.stringify(errorMessage)}`);
+    }
     throw new Error(error.message);
   }
 
