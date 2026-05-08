@@ -243,6 +243,8 @@ const GOODS_KEYWORDS = [
   "health",
   "sport",
   "toy",
+  "shopping",
+  "retail",
 ];
 
 const CLAIMABLE_GOODS_KEYWORDS = [
@@ -267,6 +269,8 @@ const CLAIMABLE_GOODS_KEYWORDS = [
   "beauty",
   "health",
   "sport",
+  "shopping",
+  "retail",
 ];
 
 const GROCERY_MERCHANT_PATTERNS = [

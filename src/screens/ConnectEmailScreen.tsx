@@ -19,7 +19,8 @@ import { colors, spacing } from "@/theme/colors";
 import type { EmailProviderId } from "@/types/domain";
 
 import * as Linking from "expo-linking";
-import { supabase } from "@/services/supabase";
+import { emailConnectionManager } from "@/services/emailConnectionManager";
+import { emailFetchingService } from "@/services/emailFetchingService";
 import { useAuth } from "@/providers/AuthProvider";
 import { useAppData } from "@/providers/AppDataProvider";
 
@@ -34,7 +35,7 @@ export function ConnectEmailScreen() {
   const navigation = useNavigation();
   const route = useRoute<any>();
   const { user } = useAuth();
-  const { runInboxScan } = useAppData();
+  const { refresh } = useAppData();
   
   const initialProvider = route.params?.providerId ?? "gmail";
   const [provider, setProvider] = useState<EmailProviderId | "custom">(initialProvider);
@@ -97,48 +98,61 @@ export function ConnectEmailScreen() {
     setLoading(true);
     console.log("[ConnectEmail] Attempting to connect...", { email, provider });
     try {
-      const connectionData = {
-        user_id: user.id,
-        email,
-        provider,
-        password_encrypted: password, 
-        imap_host: provider === "gmail" ? "imap.gmail.com" : provider === "outlook" ? "outlook.office365.com" : provider === "yahoo" ? "imap.mail.yahoo.com" : imapHost,
-        imap_port: provider === "custom" ? parseInt(imapPort) : 993,
-        smtp_host: provider === "gmail" ? "smtp.gmail.com" : provider === "outlook" ? "smtp.office365.com" : provider === "yahoo" ? "smtp.mail.yahoo.com" : smtpHost,
-        smtp_port: provider === "custom" ? parseInt(smtpPort) : 465,
-        is_active: true,
-      };
-      
-      console.log("[ConnectEmail] Inserting into email_connections:", connectionData);
-      
-      const { data, error } = await supabase.from("email_connections").insert(connectionData).select();
-
-      if (error) {
-        console.error("[ConnectEmail] Supabase Error:", error);
-        throw error;
-      }
-
-      console.log("[ConnectEmail] Success:", data);
-
-      // Automatically trigger a scan to fetch receipts for the new connection
+      // 1. Pre-flight verification: Try to fetch a small sample of emails first to verify credentials
       try {
-        console.log("[ConnectEmail] Triggering initial scan...");
-        if (provider !== "custom") {
-          runInboxScan([provider as any]).catch((e) => console.error("Initial scan error:", e));
-        } else {
-          runInboxScan().catch((e) => console.error("Initial scan error:", e));
-        }
-      } catch (scanErr) {
-        console.error("[ConnectEmail] Scan trigger failed:", scanErr);
+        console.log("[ConnectEmail] Verifying connection for:", email);
+        
+        // This will throw if credentials/provider connection fails
+        // This will throw if credentials/provider connection fails
+        // We use testConnection to verify before we have a connection ID
+        await emailFetchingService.testConnection({
+          email,
+          password,
+          provider: (provider === "custom" ? "work-imap" : provider) as EmailProviderId,
+          imapHost: provider === "custom" ? imapHost : undefined,
+          imapPort: provider === "custom" ? parseInt(imapPort) : undefined,
+          username: email,
+        });
+        
+      } catch (verifyError) {
+        console.error("[ConnectEmail] Verification failed:", verifyError);
+        Alert.alert("Connection Failed", `Could not verify your email account: ${verifyError instanceof Error ? verifyError.message : 'Unknown error'}.\n\nPlease check your email/password and try again.`);
+        return;
       }
 
-      Alert.alert("Connected", `Successfully connected to ${email}.\n\nScanning for receipts now...`, [
-        { text: "OK", onPress: () => navigation.goBack() },
-      ]);
+      // 2. If verified, add connection locally
+      const localProvider = provider === "custom" ? "work-imap" : provider;
+      const connection = await emailConnectionManager.addEmailConnection(user.id, email, localProvider as any, {
+        imapHost: provider === "custom" ? imapHost : undefined,
+        imapPort: provider === "custom" ? parseInt(imapPort) : undefined,
+        username: email,
+      });
+
+      console.log("[ConnectEmail] Saved local email connection:", connection);
+
+      await refresh();
+
+      // 3. Trigger initial full sync
+      try {
+        console.log("[ConnectEmail] Starting initial full sync for connection:", connection.id);
+        await emailConnectionManager.syncConnection(user.id, connection.id, password);
+        
+        // Refresh again after sync to get the new receipts
+        await refresh();
+
+        Alert.alert("Connected", `Successfully connected to ${email}.\n\nYour inbox has been scanned and receipts are being processed.`, [
+          { text: "OK", onPress: () => navigation.goBack() },
+        ]);
+      } catch (syncError) {
+        console.error("[ConnectEmail] Initial sync failed:", syncError);
+        Alert.alert("Connected with Sync Issue", `Account verified and saved, but the full scan hit a temporary issue: ${syncError instanceof Error ? syncError.message : 'Unknown error'}. Your account is linked and will try again later.`, [
+          { text: "OK", onPress: () => navigation.goBack() },
+        ]);
+      }
     } catch (error) {
       console.error("[ConnectEmail] Catch Error:", error);
       const message = error instanceof Error ? error.message : JSON.stringify(error);
-      Alert.alert("Connection Error", message + "\n\nMake sure you have run the database migration script provided.");
+      Alert.alert("Connection Error", message);
     } finally {
       setLoading(false);
     }

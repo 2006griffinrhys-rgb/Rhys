@@ -7,9 +7,6 @@ import {
   MOCK_RECEIPTS,
 } from "@/services/mockData";
 import { supabase } from "@/services/supabase";
-import { db } from "@/db/client";
-import * as schema from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
 import type {
   AppSnapshot,
   Claim,
@@ -399,29 +396,26 @@ function mapEmailConnection(row: UnknownRow): EmailConnection {
 }
 
 export async function fetchSnapshotForUser(userId: string): Promise<AppSnapshot> {
-  // If Supabase is intentionally disabled or not configured, use local SQLite
-  const localReceipts = await db.query.receipts.findMany({
-    orderBy: [desc(schema.receipts.purchaseDate)],
-  });
-  const localProducts = await db.query.products.findMany();
-  const localRecalls = await db.query.recalls.findMany({
-    orderBy: [desc(schema.recalls.publishedAt)],
-  });
-  const localClaims = await db.query.claims.findMany({
-    orderBy: [desc(schema.claims.createdAt)],
-  });
-  const localConnections = await db.query.emailConnections.findMany({
-    where: eq(schema.emailConnections.userId, userId),
-  });
+  const [
+    { data: receiptsData },
+    { data: productsData },
+    { data: recallsData },
+    { data: claimsData },
+    { data: connectionsData },
+  ] = await Promise.all([
+    supabase.from('receipts').select('*').eq('user_id', userId).order('purchase_date', { ascending: false }),
+    supabase.from('products').select('*').eq('user_id', userId),
+    supabase.from('recalls').select('*').eq('is_active', true).order('published_at', { ascending: false }),
+    supabase.from('claims').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
+    supabase.from('email_connections').select('*').eq('user_id', userId).eq('is_active', true),
+  ]);
 
-  // If local DB is empty and we have Supabase, we could sync, but user said "no need to supabase"
-  // For now, let's just return what's in local DB.
   return {
-    receipts: localReceipts as Receipt[],
-    products: localProducts as Product[],
-    recalls: localRecalls as Recall[],
-    claims: localClaims as Claim[],
-    emailConnections: localConnections as any[],
+    receipts: (receiptsData || []).map(mapReceipt),
+    products: (productsData || []).map(mapProduct),
+    recalls: (recallsData || []).map(mapRecall),
+    claims: (claimsData || []).map(mapClaim),
+    emailConnections: (connectionsData || []).map(mapEmailConnection),
   };
 }
 
