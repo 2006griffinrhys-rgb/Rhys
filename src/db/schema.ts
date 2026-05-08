@@ -86,3 +86,21 @@ export const claims = sqliteTable('claims', {
 
 export type ClaimLocal = InferSelectModel<typeof claims>;
 export type ClaimInsert = InferInsertModel<typeof claims>;
+
+// Track processed email messages to avoid duplicates
+export const emailMessages = sqliteTable('email_messages', {
+  id: text('id').primaryKey(), // unique message ID from email provider
+  connectionId: text('connection_id').notNull().references(() => emailConnections.id),
+  userId: text('user_id').notNull(),
+  messageId: text('message_id').notNull(), // provider-specific message ID
+  subject: text('subject').notNull(),
+  from: text('from').notNull(),
+  receiptId: text('receipt_id').references(() => receipts.id),
+  hasReceipt: integer('has_receipt', { mode: 'boolean' }).notNull().default(false),
+  processedAt: text('processed_at').notNull(),
+  fetchedAt: text('fetched_at').notNull(),
+  category: text('category'),
+});
+
+export type EmailMessageLocal = InferSelectModel<typeof emailMessages>;
+export type EmailMessageInsert = InferInsertModel<typeof emailMessages>;

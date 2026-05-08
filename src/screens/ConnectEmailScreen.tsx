@@ -19,7 +19,7 @@ import { colors, spacing } from "@/theme/colors";
 import type { EmailProviderId } from "@/types/domain";
 
 import * as Linking from "expo-linking";
-import { supabase } from "@/services/supabase";
+import { emailConnectionManager } from "@/services/emailConnectionManager";
 import { useAuth } from "@/providers/AuthProvider";
 import { useAppData } from "@/providers/AppDataProvider";
 
@@ -34,7 +34,7 @@ export function ConnectEmailScreen() {
   const navigation = useNavigation();
   const route = useRoute<any>();
   const { user } = useAuth();
-  const { runInboxScan } = useAppData();
+  const { refresh } = useAppData();
   
   const initialProvider = route.params?.providerId ?? "gmail";
   const [provider, setProvider] = useState<EmailProviderId | "custom">(initialProvider);
@@ -97,42 +97,27 @@ export function ConnectEmailScreen() {
     setLoading(true);
     console.log("[ConnectEmail] Attempting to connect...", { email, provider });
     try {
-      const connectionData = {
-        user_id: user.id,
-        email,
-        provider,
-        password_encrypted: password, 
-        imap_host: provider === "gmail" ? "imap.gmail.com" : provider === "outlook" ? "outlook.office365.com" : provider === "yahoo" ? "imap.mail.yahoo.com" : imapHost,
-        imap_port: provider === "custom" ? parseInt(imapPort) : 993,
-        smtp_host: provider === "gmail" ? "smtp.gmail.com" : provider === "outlook" ? "smtp.office365.com" : provider === "yahoo" ? "smtp.mail.yahoo.com" : smtpHost,
-        smtp_port: provider === "custom" ? parseInt(smtpPort) : 465,
-        is_active: true,
-      };
-      
-      console.log("[ConnectEmail] Inserting into email_connections:", connectionData);
-      
-      const { data, error } = await supabase.from("email_connections").insert(connectionData).select();
+      const localProvider = provider === "custom" ? "work-imap" : provider;
+      const connection = await emailConnectionManager.addEmailConnection(user.id, email, localProvider as any, {
+        imapHost: provider === "custom" ? imapHost : undefined,
+        imapPort: provider === "custom" ? parseInt(imapPort) : undefined,
+        username: email,
+      });
 
-      if (error) {
-        console.error("[ConnectEmail] Supabase Error:", error);
-        throw error;
-      }
+      console.log("[ConnectEmail] Saved local email connection:", connection);
 
-      console.log("[ConnectEmail] Success:", data);
+      await refresh();
 
-      // Automatically trigger a scan to fetch receipts for the new connection
+      // Automatically trigger an initial local inbox sync for this connection
       try {
-        console.log("[ConnectEmail] Triggering initial scan...");
-        if (provider !== "custom") {
-          runInboxScan([provider as any]).catch((e) => console.error("Initial scan error:", e));
-        } else {
-          runInboxScan().catch((e) => console.error("Initial scan error:", e));
-        }
-      } catch (scanErr) {
-        console.error("[ConnectEmail] Scan trigger failed:", scanErr);
+        console.log("[ConnectEmail] Starting local sync for connection:", connection.id);
+        const syncResult = await emailConnectionManager.syncConnection(user.id, connection.id, password);
+        console.log("[ConnectEmail] Local sync result:", syncResult);
+      } catch (syncError) {
+        console.error("[ConnectEmail] Local sync failed:", syncError);
       }
 
-      Alert.alert("Connected", `Successfully connected to ${email}.\n\nScanning for receipts now...`, [
+      Alert.alert("Connected", `Successfully connected to ${email}.\n\nThe account has been saved locally and the app will refresh receipts from new emails.`, [
         { text: "OK", onPress: () => navigation.goBack() },
       ]);
     } catch (error) {
