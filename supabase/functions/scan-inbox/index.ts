@@ -63,8 +63,8 @@ Deno.serve(async (req) => {
 
     // 2. For Gmail connections using OAuth, we'd fetch the provider token from auth.identities
     // This requires service_role access to the auth schema
-    const { data: identities, error: identError } = await supabase.auth.admin.getUserIdentities(userId);
-    const googleIdentity = identities?.find(i => i.provider === "google");
+    const { data: identities, error: identError } = await supabase.auth.admin.listUserIdentities(userId);
+    const googleIdentity = (identities?.identities || []).find(i => i.provider === "google");
     
     // In a real scenario, you would use the access_token to call Gmail API
     // For now, we continue to simulate, but acknowledging the OAuth flow

@@ -91,7 +91,16 @@ export const emailFetchingService = {
       
       // For now, we'll set up the framework for IMAP connection
       // In production, you'd use imap library or native module
-      const emails = await this.fetchEmailsFromProvider(emailConfig, processedMessageIds);
+      // Fetch new emails using Supabase Edge Function
+      const { data, error } = await supabase.functions.invoke('fetch-emails', {
+        body: {
+          ...emailConfig,
+          already_processed: Array.from(processedMessageIds),
+        },
+      });
+
+      if (error) throw error;
+      const emails = (data?.emails || []) as any[];
 
       console.log(`[Email] Fetched ${emails.length} new emails`);
       result.emailsProcessed = emails.length;
@@ -100,8 +109,8 @@ export const emailFetchingService = {
       for (const email of emails) {
         try {
           // Check if email has receipt-like attachments
-          const pdfAttachments = email.attachments.filter(
-            (att) => att.filename?.toLowerCase().includes('receipt') ||
+          const pdfAttachments = (email.attachments || []).filter(
+            (att: any) => att.filename?.toLowerCase().includes('receipt') ||
                      att.filename?.toLowerCase().includes('invoice') ||
                      att.mimeType === 'application/pdf',
           );
@@ -197,58 +206,6 @@ export const emailFetchingService = {
     }
 
     return result;
-  },
-
-  /**
-  ): Promise<FetchedEmail[]> {
-    console.log(`[Email] Provider: ${config.provider}, already processed: ${excludeMessageIds.size}`);
-
-    try {
-      // Call Supabase Edge Function to fetch real emails
-      const { data, error } = await supabase.functions.invoke('fetch-emails', {
-        body: {
-          provider: config.provider,
-          email: config.email,
-          password: config.password,
-          imapHost: config.imapHost,
-          imapPort: config.imapPort,
-          limit: 10,
-        },
-      });
-
-      if (error) {
-        console.error(`[Email] Edge function error:`, error);
-        // We throw here instead of falling back to sample data to avoid misleading "Success" alerts
-        throw new Error(`Failed to fetch emails: ${error.message || 'Unknown error'}`);
-      }
-
-      if (!data.success) {
-        console.warn(`[Email] Edge function reported failure:`, data.error);
-        throw new Error(data.error || 'Failed to sync emails');
-      }
-
-      if (!Array.isArray(data.emails)) {
-        console.warn(`[Email] Edge function returned no emails array`);
-        return [];
-      }
-
-      // Convert edge function response to FetchedEmail format
-      const emails: FetchedEmail[] = data.emails.map((email: any) => ({
-        messageId: email.messageId || `msg-${Date.now()}`,
-        subject: email.subject || '(No Subject)',
-        from: email.from || 'Unknown',
-        date: email.date || new Date().toISOString(),
-        body: email.body || email.snippet || '',
-        attachments: [],
-      }));
-
-      console.log(`[Email] Successfully fetched ${emails.length} emails from ${config.provider}`);
-
-      return emails.filter((email) => !excludeMessageIds.has(email.messageId));
-    } catch (error) {
-      console.error(`[Email] Error in fetchEmailsFromProvider:`, error);
-      throw error; // Propagate the error to the caller (e.g. ConnectEmailScreen)
-    }
   },
 
   /**

@@ -373,10 +373,11 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const claimAutomationInFlightRef = useRef(false);
   const preferredCurrencyHydratedRef = useRef(false);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async function loadData() {
     setError(null);
-
+    console.log("[AppData] loadData called for user:", user?.id);
     if (!user?.id) {
+      console.log("[AppData] No user found, clearing state");
       setState(EMPTY_STATE);
       setLoading(false);
       setRefreshing(false);
@@ -384,6 +385,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
+      console.log("[AppData] Fetching user metadata and snapshot...");
       const nextPlan = getPlanFromUserMetadata(user);
       setUserPlanState(nextPlan);
       if (user.user_metadata?.billing_interval === "monthly" || user.user_metadata?.billing_interval === "yearly") {
@@ -491,9 +493,20 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   }, [loadData]);
 
   const refresh = useCallback(async () => {
+    console.log("[AppData] Manual refresh triggered");
     setRefreshing(true);
-    await loadData();
-  }, [loadData]);
+    try {
+      console.log("[AppData] Starting background scan during refresh...");
+      await runInboxScanSilently();
+      console.log("[AppData] Background scan complete, reloading data...");
+      await loadData();
+    } catch (err) {
+      console.error("[AppData] Refresh failed:", err);
+    } finally {
+      setRefreshing(false);
+      console.log("[AppData] Manual refresh complete");
+    }
+  }, [loadData, runInboxScanSilently]);
 
   const createClaimForRecallAction = useCallback(
     async (recall: Recall) => {
@@ -812,20 +825,35 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   }, [inboxScanProviders, loadData, user?.id]);
 
   const runInboxScanSilently = useCallback(async () => {
-    if (!user?.id || autoScanInFlightRef.current) return;
+    console.log("[AppData] runInboxScanSilently called");
+    if (!user?.id) {
+      console.log("[AppData] Skipping scan: No user ID");
+      return;
+    }
+    if (autoScanInFlightRef.current) {
+      console.log("[AppData] Skipping scan: Already in flight");
+      return;
+    }
+    
+    console.log("[AppData] Starting background scan for providers:", inboxScanProviders);
     autoScanInFlightRef.current = true;
     try {
       const result = await runMultiProviderInboxScan(user.id, inboxScanProviders);
+      console.log("[AppData] Background scan result:", result);
       setInboxScanLastCount(result.scannedEmails);
       setLastInboxScan(result);
       if (env.serverScanFallbackEnabled) {
+        console.log("[AppData] Triggering server scan fallback...");
         await requestServerScanFallback(user.id, inboxScanProviders);
       }
+      console.log("[AppData] Reloading data after background scan...");
       await loadData();
-    } catch {
+    } catch (err) {
+      console.error("[AppData] Background scan failed:", err);
       // Keep background scanning resilient and avoid surfacing noisy errors to users.
     } finally {
       autoScanInFlightRef.current = false;
+      console.log("[AppData] Background scan in-flight flag cleared");
     }
   }, [inboxScanProviders, loadData, user?.id]);
 
